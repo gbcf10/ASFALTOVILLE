@@ -1,4 +1,4 @@
-import { getDashboardStats, getMonthlyStats } from '@/lib/db';
+import { getDashboardStats, getMonthlyStats, type MonthlyStats } from '@/lib/db';
 import { formatMonth } from '@/lib/utils';
 import { formatCurrency } from '@/lib/auth';
 import Link from 'next/link';
@@ -6,13 +6,11 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  let stats, monthly;
+  let stats = { totalPaid: 0, totalPending: 0, contributingLots: 0, totalActiveLots: 256, totalExpenses: 0, balance: 0 };
+  let monthly: MonthlyStats[] = [];
   try {
     [stats, monthly] = await Promise.all([getDashboardStats(), getMonthlyStats()]);
-  } catch {
-    stats = { totalPaid: 0, totalPending: 0, contributingLots: 0, totalActiveLots: 256, totalExpenses: 0, balance: 0 };
-    monthly = [];
-  }
+  } catch {}
 
   const pct = stats.totalActiveLots > 0
     ? Math.round((stats.contributingLots / stats.totalActiveLots) * 100) : 0;
