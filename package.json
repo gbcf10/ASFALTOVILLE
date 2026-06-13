@@ -9,10 +9,10 @@
     "db:init": "node scripts/init-db.mjs"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
     "@types/qrcode": "^1.5.6",
     "jose": "^5.6.3",
     "next": "^14.2.35",
+    "postgres": "^3.4.9",
     "qrcode": "^1.5.4",
     "react": "^18",
     "react-dom": "^18"

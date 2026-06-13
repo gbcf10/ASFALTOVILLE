@@ -1,23 +1,24 @@
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 import { createHash } from 'crypto';
 
-let _neon: ReturnType<typeof neon> | null = null;
+let _pg: ReturnType<typeof postgres> | null = null;
 
-function getNeon() {
-  if (!_neon) {
+function getPg() {
+  if (!_pg) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error('DATABASE_URL não configurada no Vercel.');
-    _neon = neon(url);
+    // prepare:false obrigatório com o pooler do Supabase
+    _pg = postgres(url, { prepare: false });
   }
-  return _neon;
+  return _pg;
 }
 
-// Lazy proxy — neon só é instanciado na primeira query, não no build
-export const sql: ReturnType<typeof neon> = new Proxy(
-  (() => {}) as unknown as ReturnType<typeof neon>,
+// Lazy proxy — postgres só é instanciado na primeira query, não no build
+export const sql: ReturnType<typeof postgres> = new Proxy(
+  (() => {}) as unknown as ReturnType<typeof postgres>,
   {
-    apply(_t, _ctx, args) { return (getNeon() as unknown as Function).apply(_ctx, args); },
-    get(_t, prop) { return (getNeon() as unknown as Record<string | symbol, unknown>)[prop]; },
+    apply(_t, _ctx, args) { return (getPg() as unknown as Function).apply(_ctx, args); },
+    get(_t, prop) { return (getPg() as unknown as Record<string | symbol, unknown>)[prop]; },
   }
 );
 
@@ -85,56 +86,54 @@ export async function ensureInit() {
   const h1 = hashPassword('Sindico@2024');
   const h2 = hashPassword('Admin@2024');
 
-  await sql.transaction([
-    sql`CREATE TABLE IF NOT EXISTS lots (
-      id SERIAL PRIMARY KEY,
-      display_id TEXT NOT NULL UNIQUE,
-      owner_name TEXT,
-      password_hash TEXT,
-      is_empty INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS donations (
-      id SERIAL PRIMARY KEY,
-      lot_id INTEGER NOT NULL REFERENCES lots(id),
-      donor_name TEXT NOT NULL,
-      amount REAL NOT NULL,
-      payment_method TEXT NOT NULL,
-      status TEXT DEFAULT 'pendente',
-      reference_month TEXT,
-      notes TEXT,
-      created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
-      confirmed_at TEXT,
-      confirmed_by TEXT
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS expenses (
-      id SERIAL PRIMARY KEY,
-      description TEXT NOT NULL,
-      amount REAL NOT NULL,
-      category TEXT DEFAULT 'geral',
-      expense_date TEXT NOT NULL,
-      reference_month TEXT,
-      notes TEXT,
-      created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS admins (
-      id SERIAL PRIMARY KEY,
-      username TEXT NOT NULL UNIQUE,
-      name TEXT NOT NULL,
-      password_hash TEXT NOT NULL,
-      role TEXT DEFAULT 'admin',
-      created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
-    )`,
-    sql`INSERT INTO lots (display_id)
-      SELECT to_char(n, 'FM000') FROM generate_series(1, 256) AS n
-      ON CONFLICT (display_id) DO NOTHING`,
-    sql`INSERT INTO admins (username, name, password_hash, role)
-      VALUES ('sindico', 'Elton de Jesus Rodrigues', ${h1}, 'admin')
-      ON CONFLICT (username) DO NOTHING`,
-    sql`INSERT INTO admins (username, name, password_hash, role)
-      VALUES ('admin', 'Gabriel', ${h2}, 'superadmin')
-      ON CONFLICT (username) DO NOTHING`,
-  ]);
+  await sql`CREATE TABLE IF NOT EXISTS lots (
+    id SERIAL PRIMARY KEY,
+    display_id TEXT NOT NULL UNIQUE,
+    owner_name TEXT,
+    password_hash TEXT,
+    is_empty INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+  )`;
+  await sql`CREATE TABLE IF NOT EXISTS donations (
+    id SERIAL PRIMARY KEY,
+    lot_id INTEGER NOT NULL REFERENCES lots(id),
+    donor_name TEXT NOT NULL,
+    amount REAL NOT NULL,
+    payment_method TEXT NOT NULL,
+    status TEXT DEFAULT 'pendente',
+    reference_month TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+    confirmed_at TEXT,
+    confirmed_by TEXT
+  )`;
+  await sql`CREATE TABLE IF NOT EXISTS expenses (
+    id SERIAL PRIMARY KEY,
+    description TEXT NOT NULL,
+    amount REAL NOT NULL,
+    category TEXT DEFAULT 'geral',
+    expense_date TEXT NOT NULL,
+    reference_month TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+  )`;
+  await sql`CREATE TABLE IF NOT EXISTS admins (
+    id SERIAL PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'admin',
+    created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+  )`;
+  await sql`INSERT INTO lots (display_id)
+    SELECT to_char(n, 'FM000') FROM generate_series(1, 256) AS n
+    ON CONFLICT (display_id) DO NOTHING`;
+  await sql`INSERT INTO admins (username, name, password_hash, role)
+    VALUES ('sindico', 'Elton de Jesus Rodrigues', ${h1}, 'admin')
+    ON CONFLICT (username) DO NOTHING`;
+  await sql`INSERT INTO admins (username, name, password_hash, role)
+    VALUES ('admin', 'Gabriel', ${h2}, 'superadmin')
+    ON CONFLICT (username) DO NOTHING`;
 }
 
 export async function getLotById(id: number): Promise<Lot | null> {
