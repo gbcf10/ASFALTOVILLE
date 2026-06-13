@@ -1,0 +1,57 @@
+=====================================================
+  ASFALTO CONDOMÍNIO VILLE - Sistema de Arrecadação
+=====================================================
+
+COMO INICIAR O SISTEMA:
+------------------------
+1. Abra o terminal (PowerShell) nesta pasta
+2. Execute: npm run db:init
+   (cria o banco com todos os 256 lotes e senhas)
+3. Execute: npm run dev
+   (inicia o servidor)
+4. Acesse: http://localhost:3000
+
+Para acesso em outros dispositivos na mesma rede Wi-Fi:
+   http://SEU_IP_LOCAL:3000
+   (ex: http://192.168.1.100:3000)
+
+CREDENCIAIS ADMINISTRATIVAS (padrão):
+--------------------------------------
+Síndico:     usuário: sindico  | senha: Sindico@2024
+Administrador: usuário: admin  | senha: Admin@2024
+⚠ MUDE AS SENHAS APÓS O PRIMEIRO ACESSO!
+
+SENHAS DOS LOTES:
+-----------------
+Após executar npm run db:init, as senhas ficam em:
+   data/senhas_lotes.csv
+(use este arquivo para distribuir as senhas aos moradores)
+
+CONFIGURAÇÃO DO PIX (.env.local):
+-----------------------------------
+PIX_KEY=         → Chave PIX do síndico (email, CPF, CNPJ ou telefone)
+PIX_BENEFICIARY= → Nome do beneficiário
+PIX_BANK=        → Nome do banco
+
+COMO OS LOTES FAZEM LOGIN:
+----------------------------
+- Identificação do lote: R(rua)-L(lote)
+  Exemplos: R1-L01, R2-L15, R8-L32
+- Senha: a senha única gerada (ver senhas_lotes.csv)
+
+IDENTIFICAÇÃO DAS RUAS:
+------------------------
+Rua 1: Lotes R1-L01 a R1-L32
+Rua 2: Lotes R2-L01 a R2-L32
+... e assim por diante até Rua 8
+
+FUNCIONALIDADES:
+-----------------
+✓ Página pública com totais e progresso por rua
+✓ Cada lote acessa apenas seus próprios dados
+✓ PIX: marcado automaticamente como pago
+✓ Dinheiro: fica pendente até síndico confirmar
+✓ Admin pode editar nome do proprietário de cada lote
+✓ Admin pode marcar lotes como vazios
+✓ Controle de despesas com categorias
+✓ Acesso multi-dispositivo na rede local

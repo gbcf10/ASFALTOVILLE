@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 15; \"Status: $\\($r.StatusCode\\)\"; if \\($r.Content -match \"Asfalto\"\\) { \"Conteudo OK\" } else { \"Sem conteudo esperado\" } } catch { \"Erro: $_\" })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/login\" -UseBasicParsing -TimeoutSec 15; \"Login: $\\($r.StatusCode\\)\" } catch { \"Erro: $_\" }; try { $r2 = Invoke-WebRequest -Uri \"http://localhost:3000/admin\" -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0; \"Admin direto: $\\($r2.StatusCode\\)\" } catch { if \\($_ -match \"302\"\\) { \"Admin redireciona para login: OK\" } else { \"Erro: $_\" } })",
+      "PowerShell($body = '{\"type\":\"admin\",\"username\":\"admin\",\"password\":\"Admin@2024\"}'; try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/api/auth/login\" -Method POST -Body $body -ContentType \"application/json\" -UseBasicParsing -TimeoutSec 15; \"Login API: $\\($r.StatusCode\\) - $\\($r.Content\\)\" } catch { \"Erro: $_\" })",
+      "PowerShell($body = '{\"type\":\"lot\",\"fullId\":\"R1-L01\",\"password\":\"SENHAERRADA\"}'; try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/api/auth/login\" -Method POST -Body $body -ContentType \"application/json\" -UseBasicParsing -TimeoutSec 15; \"Status: $\\($r.StatusCode\\)\" } catch { $err = $_.Exception.Response; \"Senha errada rejeitada corretamente: $\\($err.StatusCode.value__\\)\" })",
+      "PowerShell($body = '{\"type\":\"lot\",\"fullId\":\"R1-L01\",\"password\":\"MGBPJhZX\"}'; try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/api/auth/login\" -Method POST -Body $body -ContentType \"application/json\" -UseBasicParsing -TimeoutSec 15; \"Login lote: $\\($r.StatusCode\\) - $\\($r.Content\\)\" } catch { \"Erro: $_\" })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 10; \"Servidor rodando: $\\($r.StatusCode\\)\" } catch { \"Servidor parado: $_\" })",
+      "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)"
+    ]
+  }
+}

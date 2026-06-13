@@ -1,0 +1,32 @@
+{
+  "name": "asfaltoville",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0",
+    "db:init": "node scripts/init-db.mjs"
+  },
+  "dependencies": {
+    "@types/qrcode": "^1.5.6",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.6.0",
+    "jose": "^5.6.3",
+    "next": "14.2.5",
+    "qrcode": "^1.5.4",
+    "react": "^18",
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.6",
+    "typescript": "^5"
+  }
+}
