@@ -7,7 +7,8 @@
       "PowerShell($body = '{\"type\":\"lot\",\"fullId\":\"R1-L01\",\"password\":\"SENHAERRADA\"}'; try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/api/auth/login\" -Method POST -Body $body -ContentType \"application/json\" -UseBasicParsing -TimeoutSec 15; \"Status: $\\($r.StatusCode\\)\" } catch { $err = $_.Exception.Response; \"Senha errada rejeitada corretamente: $\\($err.StatusCode.value__\\)\" })",
       "PowerShell($body = '{\"type\":\"lot\",\"fullId\":\"R1-L01\",\"password\":\"MGBPJhZX\"}'; try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/api/auth/login\" -Method POST -Body $body -ContentType \"application/json\" -UseBasicParsing -TimeoutSec 15; \"Login lote: $\\($r.StatusCode\\) - $\\($r.Content\\)\" } catch { \"Erro: $_\" })",
       "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 10; \"Servidor rodando: $\\($r.StatusCode\\)\" } catch { \"Servidor parado: $_\" })",
-      "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)"
+      "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(npm cache clean --force)"
     ]
   }
 }

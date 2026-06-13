@@ -9,9 +9,8 @@
     "db:init": "node scripts/init-db.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@types/qrcode": "^1.5.6",
-    "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^9.6.0",
     "jose": "^5.6.3",
     "next": "^14.2.35",
     "qrcode": "^1.5.4",
@@ -19,8 +18,6 @@
     "react-dom": "^18"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

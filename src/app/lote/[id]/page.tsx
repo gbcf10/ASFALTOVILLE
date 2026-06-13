@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/auth';
-import { getLotById, getDonationsByLotId, getLotMonthlyStatus, currentMonth } from '@/lib/db';
+import { getLotById, getDonationsByLotId, getLotMonthlyStatus } from '@/lib/db';
+import { currentMonth } from '@/lib/utils';
 import { redirect } from 'next/navigation';
 import LotDashboard from './LotDashboard';
 
@@ -15,13 +16,15 @@ export default async function LotPage({ params }: Props) {
   if (isNaN(lotDbId)) redirect('/login');
   if (session.type === 'lot' && session.id !== lotDbId) redirect(`/lote/${session.id}`);
 
-  const lot = getLotById(lotDbId);
+  const [lot, donations, monthlyStatus] = await Promise.all([
+    getLotById(lotDbId),
+    getDonationsByLotId(lotDbId),
+    getLotMonthlyStatus(lotDbId),
+  ]);
+
   if (!lot) redirect('/login');
 
-  const donations = getDonationsByLotId(lotDbId);
-  const monthlyStatus = getLotMonthlyStatus(lotDbId);
-  const totalPaid = donations.filter(d => d.status === 'pago').reduce((s, d) => s + d.amount, 0);
-
+  const totalPaid = donations.filter(d => d.status === 'pago').reduce((s, d) => s + Number(d.amount), 0);
   const now = new Date();
   const cur = currentMonth();
   const dayOfMonth = now.getDate();

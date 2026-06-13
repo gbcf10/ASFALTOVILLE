@@ -1,18 +1,20 @@
-import { getMonthlyStats, getDashboardStats, formatMonth, getDb } from '@/lib/db';
+import { getMonthlyStats, getDashboardStats, sql, ensureInit } from '@/lib/db';
+import { formatMonth } from '@/lib/utils';
 import { formatCurrency } from '@/lib/auth';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
-export default function PrestacaoPage() {
-  const stats = getDashboardStats();
-  const monthly = getMonthlyStats();
-  const db = getDb();
+export default async function PrestacaoPage() {
+  await ensureInit();
+  const [stats, monthly] = await Promise.all([getDashboardStats(), getMonthlyStats()]);
 
-  const allExpenses = db.prepare(`SELECT * FROM expenses ORDER BY expense_date DESC`).all() as Array<{
+  const allExpenses = await sql`SELECT * FROM expenses ORDER BY expense_date DESC` as Array<{
     id: number; description: string; amount: number; category: string;
     expense_date: string; reference_month: string | null; notes: string | null;
   }>;
+
+  const expenses = allExpenses.map(e => ({ ...e, amount: Number(e.amount) }));
 
   let runningBalance = 0;
   const monthlyWithBalance = [...monthly].reverse().map(m => {
@@ -28,15 +30,14 @@ export default function PrestacaoPage() {
             <div className="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center text-xl">📊</div>
             <div>
               <h1 className="text-xl font-bold leading-tight">Prestação de Contas</h1>
-              <p className="text-brand-200 text-xs">Condomínio Ville — Asfaltamento</p>
+              <p className="text-brand-100 text-xs">Condomínio Ville — Asfaltamento</p>
             </div>
           </div>
-          <Link href="/" className="text-sm text-brand-200 hover:text-white">← Início</Link>
+          <Link href="/" className="text-sm text-brand-100 hover:text-white">← Início</Link>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-        {/* Resumo geral */}
         <div className="grid grid-cols-3 gap-3">
           <div className="card text-center py-4">
             <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Arrecadado</p>
@@ -62,7 +63,6 @@ export default function PrestacaoPage() {
           </div>
         )}
 
-        {/* Por mês */}
         <div className="card">
           <h2 className="font-bold text-gray-800 mb-5 text-lg">Arrecadação e Gastos por Mês</h2>
           {monthlyWithBalance.length === 0 ? (
@@ -100,17 +100,15 @@ export default function PrestacaoPage() {
           )}
         </div>
 
-        {/* Todas as despesas */}
         <div className="card">
           <h2 className="font-bold text-gray-800 mb-4 text-lg">Gastos Realizados com a Obra</h2>
-          {allExpenses.length === 0 ? (
+          {expenses.length === 0 ? (
             <div className="text-center py-6">
               <p className="text-gray-400 text-sm">Nenhum gasto registrado ainda.</p>
-              <p className="text-gray-300 text-xs mt-1">Os gastos aparecerão aqui conforme forem sendo realizados.</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {allExpenses.map(e => (
+              {expenses.map(e => (
                 <div key={e.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg gap-3">
                   <div className="min-w-0">
                     <p className="font-medium text-gray-800 text-sm">{e.description}</p>
@@ -130,7 +128,7 @@ export default function PrestacaoPage() {
               ))}
               <div className="flex justify-between items-center pt-3 border-t border-gray-200 font-bold">
                 <span className="text-gray-700">Total gasto</span>
-                <span className="text-red-600">{formatCurrency(allExpenses.reduce((s, e) => s + e.amount, 0))}</span>
+                <span className="text-red-600">{formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}</span>
               </div>
             </div>
           )}

@@ -1,32 +1,28 @@
-import { getDb, getDashboardStats } from '@/lib/db';
+import { sql, getDashboardStats, ensureInit } from '@/lib/db';
 import { formatCurrency } from '@/lib/auth';
 import AdminConfirmCard from './AdminConfirmCard';
 
 export const dynamic = 'force-dynamic';
 
-export default function AdminPage() {
-  const stats = getDashboardStats();
-  const db = getDb();
+export default async function AdminPage() {
+  await ensureInit();
+  const stats = await getDashboardStats();
 
-  const pendingDonations = db.prepare(`
+  const pendingDonations = await sql`
     SELECT d.*, l.display_id, l.owner_name
-    FROM donations d
-    JOIN lots l ON l.id = d.lot_id
-    WHERE d.status = 'pendente'
-    ORDER BY d.created_at DESC
-  `).all() as Array<{
+    FROM donations d JOIN lots l ON l.id = d.lot_id
+    WHERE d.status = 'pendente' ORDER BY d.created_at DESC
+  ` as Array<{
     id: number; lot_id: number; donor_name: string; amount: number;
     payment_method: string; status: string; notes: string | null;
     created_at: string; display_id: string; owner_name: string | null;
   }>;
 
-  const recentDonations = db.prepare(`
+  const recentDonations = await sql`
     SELECT d.*, l.display_id, l.owner_name
-    FROM donations d
-    JOIN lots l ON l.id = d.lot_id
-    ORDER BY d.created_at DESC
-    LIMIT 20
-  `).all() as typeof pendingDonations;
+    FROM donations d JOIN lots l ON l.id = d.lot_id
+    ORDER BY d.created_at DESC LIMIT 20
+  ` as typeof pendingDonations;
 
   function fmtDate(s: string) {
     return new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });

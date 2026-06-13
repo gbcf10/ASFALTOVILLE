@@ -1,17 +1,17 @@
-import { getDashboardStats, getMonthlyStats, formatMonth } from '@/lib/db';
+import { getDashboardStats, getMonthlyStats } from '@/lib/db';
+import { formatMonth } from '@/lib/utils';
 import { formatCurrency } from '@/lib/auth';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
-export default function Home() {
-  let stats, monthly: ReturnType<typeof getMonthlyStats>;
+export default async function Home() {
+  let stats, monthly;
   try {
-    stats = getDashboardStats();
-    monthly = getMonthlyStats();
+    [stats, monthly] = await Promise.all([getDashboardStats(), getMonthlyStats()]);
   } catch {
     stats = { totalPaid: 0, totalPending: 0, contributingLots: 0, totalActiveLots: 256, totalExpenses: 0, balance: 0 };
-    monthly = [] as ReturnType<typeof getMonthlyStats>;
+    monthly = [];
   }
 
   const pct = stats.totalActiveLots > 0
@@ -25,7 +25,7 @@ export default function Home() {
             <div className="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center text-xl">🛣️</div>
             <div>
               <h1 className="text-xl font-bold leading-tight">Asfalto Condomínio Ville</h1>
-              <p className="text-brand-200 text-xs">Vencimento todo dia 10 · Mínimo R$ 20,00</p>
+              <p className="text-brand-100 text-xs">Vencimento todo dia 10 · Mínimo R$ 20,00</p>
             </div>
           </div>
           <Link href="/login" className="bg-white text-brand-800 font-semibold text-sm px-4 py-2 rounded-lg hover:bg-brand-50 transition-colors">
@@ -35,7 +35,6 @@ export default function Home() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-8 space-y-5">
-        {/* Total */}
         <div className="card text-center py-8">
           <p className="text-gray-400 text-sm uppercase tracking-wide mb-2">Total arrecadado</p>
           <p className="text-5xl font-bold text-brand-700">{formatCurrency(stats.totalPaid)}</p>
@@ -51,7 +50,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Counts */}
         <div className="grid grid-cols-2 gap-4">
           <div className="card text-center">
             <p className="text-3xl font-bold text-brand-700">{stats.contributingLots}</p>
@@ -63,7 +61,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Progress */}
         <div className="card">
           <div className="flex justify-between items-center mb-3">
             <span className="text-sm font-semibold text-gray-700">Participação geral</span>
@@ -77,7 +74,6 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Monthly breakdown */}
         {monthly.length > 0 && (
           <div className="card">
             <h2 className="font-bold text-gray-800 mb-4">Arrecadação Mensal</h2>
@@ -108,7 +104,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Info */}
         <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 text-center">
           <p className="text-brand-800 text-sm font-medium">
             Contribuição mínima de <strong>R$ 20,00</strong> até o <strong>dia 10</strong> de cada mês.

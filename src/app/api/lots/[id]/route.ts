@@ -1,27 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { sql, ensureInit } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 
 interface Params { params: { id: string } }
 
 export async function PATCH(request: NextRequest, { params }: Params) {
   const session = await getSession();
-  if (!session || session.type !== 'admin') {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-  }
+  if (!session || session.type !== 'admin') return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
   const lotId = parseInt(params.id, 10);
-  const body = await request.json();
-  const { ownerName, isEmpty, resetPassword } = body;
+  const { ownerName, isEmpty, resetPassword } = await request.json();
 
-  const db = getDb();
+  await ensureInit();
 
   if (resetPassword) {
-    db.prepare(`UPDATE lots SET owner_name = ?, is_empty = ?, password_hash = NULL WHERE id = ?`)
-      .run(ownerName?.trim() || null, isEmpty ? 1 : 0, lotId);
+    await sql`UPDATE lots SET owner_name = ${ownerName?.trim() || null}, is_empty = ${isEmpty ? 1 : 0}, password_hash = NULL WHERE id = ${lotId}`;
   } else {
-    db.prepare(`UPDATE lots SET owner_name = ?, is_empty = ? WHERE id = ?`)
-      .run(ownerName?.trim() || null, isEmpty ? 1 : 0, lotId);
+    await sql`UPDATE lots SET owner_name = ${ownerName?.trim() || null}, is_empty = ${isEmpty ? 1 : 0} WHERE id = ${lotId}`;
   }
 
   return NextResponse.json({ ok: true });

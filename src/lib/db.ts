@@ -1,31 +1,7 @@
-import Database from 'better-sqlite3';
+import { neon } from '@neondatabase/serverless';
 import { createHash } from 'crypto';
-import path from 'path';
-import fs from 'fs';
 
-const DB_PATH = path.join(process.cwd(), 'data', 'asfaltoville.db');
-let _db: Database.Database | null = null;
-
-export function getDb(): Database.Database {
-  if (!_db) {
-    const dir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    _db = new Database(DB_PATH);
-    _db.pragma('journal_mode = WAL');
-    _db.pragma('foreign_keys = ON');
-    runMigrations(_db);
-  }
-  return _db;
-}
-
-function runMigrations(db: Database.Database) {
-  // Add reference_month if missing (for existing databases)
-  try { db.exec(`ALTER TABLE donations ADD COLUMN reference_month TEXT`); } catch {}
-  try { db.exec(`ALTER TABLE expenses ADD COLUMN reference_month TEXT`); } catch {}
-  // Backfill reference_month from created_at
-  db.exec(`UPDATE donations SET reference_month = strftime('%Y-%m', created_at) WHERE reference_month IS NULL`);
-  db.exec(`UPDATE expenses SET reference_month = strftime('%Y-%m', expense_date) WHERE reference_month IS NULL`);
-}
+export const sql = neon(process.env.DATABASE_URL!);
 
 export function hashPassword(plain: string): string {
   return createHash('sha256').update('AsfaltoVille2024_Salt_' + plain).digest('hex');
@@ -67,34 +43,11 @@ export interface Expense {
   created_at: string;
 }
 
-export function getLotById(id: number): Lot | null {
-  return getDb().prepare('SELECT * FROM lots WHERE id = ?').get(id) as Lot | null;
-}
-
-export function getDonationsByLotId(lotId: number): Donation[] {
-  return getDb().prepare('SELECT * FROM donations WHERE lot_id = ? ORDER BY created_at DESC').all(lotId) as Donation[];
-}
-
 export interface MonthlyLotStatus {
   reference_month: string;
   total_paid: number;
   total_pending: number;
-  is_paid: boolean; // >= 20 confirmed
-}
-
-export function getLotMonthlyStatus(lotId: number): MonthlyLotStatus[] {
-  const rows = getDb().prepare(`
-    SELECT
-      reference_month,
-      COALESCE(SUM(CASE WHEN status='pago' THEN amount ELSE 0 END), 0) as total_paid,
-      COALESCE(SUM(CASE WHEN status='pendente' THEN amount ELSE 0 END), 0) as total_pending
-    FROM donations
-    WHERE lot_id = ? AND reference_month IS NOT NULL
-    GROUP BY reference_month
-    ORDER BY reference_month DESC
-  `).all(lotId) as Array<{ reference_month: string; total_paid: number; total_pending: number }>;
-
-  return rows.map(r => ({ ...r, is_paid: r.total_paid >= 20 }));
+  is_paid: boolean;
 }
 
 export interface MonthlyStats {
@@ -105,65 +58,130 @@ export interface MonthlyStats {
   total_expenses: number;
 }
 
-export function getMonthlyStats(): MonthlyStats[] {
-  const db = getDb();
+let _initialized = false;
 
-  const income = db.prepare(`
-    SELECT
-      reference_month,
-      COUNT(DISTINCT CASE WHEN status='pago' THEN lot_id END) as contributing_lots,
+export async function ensureInit() {
+  if (_initialized) return;
+  _initialized = true;
+
+  const h1 = hashPassword('Sindico@2024');
+  const h2 = hashPassword('Admin@2024');
+
+  await sql.transaction([
+    sql`CREATE TABLE IF NOT EXISTS lots (
+      id SERIAL PRIMARY KEY,
+      display_id TEXT NOT NULL UNIQUE,
+      owner_name TEXT,
+      password_hash TEXT,
+      is_empty INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS donations (
+      id SERIAL PRIMARY KEY,
+      lot_id INTEGER NOT NULL REFERENCES lots(id),
+      donor_name TEXT NOT NULL,
+      amount REAL NOT NULL,
+      payment_method TEXT NOT NULL,
+      status TEXT DEFAULT 'pendente',
+      reference_month TEXT,
+      notes TEXT,
+      created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+      confirmed_at TEXT,
+      confirmed_by TEXT
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS expenses (
+      id SERIAL PRIMARY KEY,
+      description TEXT NOT NULL,
+      amount REAL NOT NULL,
+      category TEXT DEFAULT 'geral',
+      expense_date TEXT NOT NULL,
+      reference_month TEXT,
+      notes TEXT,
+      created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+    )`,
+    sql`CREATE TABLE IF NOT EXISTS admins (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT DEFAULT 'admin',
+      created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+    )`,
+    sql`INSERT INTO lots (display_id)
+      SELECT to_char(n, 'FM000') FROM generate_series(1, 256) AS n
+      ON CONFLICT (display_id) DO NOTHING`,
+    sql`INSERT INTO admins (username, name, password_hash, role)
+      VALUES ('sindico', 'Elton de Jesus Rodrigues', ${h1}, 'admin')
+      ON CONFLICT (username) DO NOTHING`,
+    sql`INSERT INTO admins (username, name, password_hash, role)
+      VALUES ('admin', 'Gabriel', ${h2}, 'superadmin')
+      ON CONFLICT (username) DO NOTHING`,
+  ]);
+}
+
+export async function getLotById(id: number): Promise<Lot | null> {
+  await ensureInit();
+  const rows = await sql`SELECT * FROM lots WHERE id = ${id}`;
+  return (rows[0] as Lot) ?? null;
+}
+
+export async function getDonationsByLotId(lotId: number): Promise<Donation[]> {
+  await ensureInit();
+  const rows = await sql`SELECT * FROM donations WHERE lot_id = ${lotId} ORDER BY created_at DESC`;
+  return rows as Donation[];
+}
+
+export async function getLotMonthlyStatus(lotId: number): Promise<MonthlyLotStatus[]> {
+  await ensureInit();
+  const rows = await sql`
+    SELECT reference_month,
       COALESCE(SUM(CASE WHEN status='pago' THEN amount ELSE 0 END), 0) as total_paid,
       COALESCE(SUM(CASE WHEN status='pendente' THEN amount ELSE 0 END), 0) as total_pending
     FROM donations
-    WHERE reference_month IS NOT NULL
-    GROUP BY reference_month
-    ORDER BY reference_month DESC
-  `).all() as Array<{ reference_month: string; contributing_lots: number; total_paid: number; total_pending: number }>;
-
-  const expenses = db.prepare(`
-    SELECT reference_month, COALESCE(SUM(amount), 0) as total_expenses
-    FROM expenses WHERE reference_month IS NOT NULL
-    GROUP BY reference_month
-  `).all() as Array<{ reference_month: string; total_expenses: number }>;
-
-  const expMap = new Map(expenses.map(e => [e.reference_month, e.total_expenses]));
-
-  // Merge all months from income and expenses
-  const allMonths = new Set([...income.map(i => i.reference_month), ...expenses.map(e => e.reference_month)]);
-  const incMap = new Map(income.map(i => [i.reference_month, i]));
-
-  return Array.from(allMonths)
-    .sort((a, b) => b.localeCompare(a))
-    .map(m => ({
-      reference_month: m,
-      contributing_lots: incMap.get(m)?.contributing_lots ?? 0,
-      total_paid: incMap.get(m)?.total_paid ?? 0,
-      total_pending: incMap.get(m)?.total_pending ?? 0,
-      total_expenses: expMap.get(m) ?? 0,
-    }));
+    WHERE lot_id = ${lotId} AND reference_month IS NOT NULL
+    GROUP BY reference_month ORDER BY reference_month DESC
+  `;
+  return (rows as Array<{ reference_month: string; total_paid: number; total_pending: number }>)
+    .map(r => ({ ...r, total_paid: Number(r.total_paid), total_pending: Number(r.total_pending), is_paid: Number(r.total_paid) >= 20 }));
 }
 
-export function getDashboardStats() {
-  const db = getDb();
-  const totalPaid = (db.prepare(`SELECT COALESCE(SUM(amount),0) as t FROM donations WHERE status='pago'`).get() as { t: number }).t;
-  const totalPending = (db.prepare(`SELECT COALESCE(SUM(amount),0) as t FROM donations WHERE status='pendente'`).get() as { t: number }).t;
-  const contributingLots = (db.prepare(`SELECT COUNT(DISTINCT lot_id) as c FROM donations WHERE status='pago'`).get() as { c: number }).c;
-  const totalActiveLots = (db.prepare(`SELECT COUNT(*) as c FROM lots WHERE is_empty=0`).get() as { c: number }).c;
-  const totalExpenses = (db.prepare(`SELECT COALESCE(SUM(amount),0) as t FROM expenses`).get() as { t: number }).t;
-  return {
-    totalPaid, totalPending, contributingLots, totalActiveLots,
-    totalExpenses, balance: totalPaid - totalExpenses,
-  };
+export async function getMonthlyStats(): Promise<MonthlyStats[]> {
+  await ensureInit();
+  const [income, expenses] = await Promise.all([
+    sql`SELECT reference_month,
+        COUNT(DISTINCT CASE WHEN status='pago' THEN lot_id END) as contributing_lots,
+        COALESCE(SUM(CASE WHEN status='pago' THEN amount ELSE 0 END), 0) as total_paid,
+        COALESCE(SUM(CASE WHEN status='pendente' THEN amount ELSE 0 END), 0) as total_pending
+      FROM donations WHERE reference_month IS NOT NULL
+      GROUP BY reference_month ORDER BY reference_month DESC`,
+    sql`SELECT reference_month, COALESCE(SUM(amount), 0) as total_expenses
+      FROM expenses WHERE reference_month IS NOT NULL GROUP BY reference_month`,
+  ]);
+  const expMap = new Map(expenses.map(e => [e.reference_month as string, Number(e.total_expenses)]));
+  const allMonths = new Set([...income.map(i => i.reference_month as string), ...expenses.map(e => e.reference_month as string)]);
+  const incMap = new Map(income.map(i => [i.reference_month as string, i]));
+  return Array.from(allMonths).sort((a, b) => b.localeCompare(a)).map(m => ({
+    reference_month: m,
+    contributing_lots: Number(incMap.get(m)?.contributing_lots ?? 0),
+    total_paid: Number(incMap.get(m)?.total_paid ?? 0),
+    total_pending: Number(incMap.get(m)?.total_pending ?? 0),
+    total_expenses: expMap.get(m) ?? 0,
+  }));
 }
 
-export function formatMonth(yyyyMm: string): string {
-  const months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-                  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const [year, month] = yyyyMm.split('-');
-  return `${months[parseInt(month) - 1]}/${year}`;
-}
-
-export function currentMonth(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+export async function getDashboardStats() {
+  await ensureInit();
+  const [r1, r2, r3, r4, r5] = await Promise.all([
+    sql`SELECT COALESCE(SUM(amount),0) as t FROM donations WHERE status='pago'`,
+    sql`SELECT COALESCE(SUM(amount),0) as t FROM donations WHERE status='pendente'`,
+    sql`SELECT COUNT(DISTINCT lot_id) as c FROM donations WHERE status='pago'`,
+    sql`SELECT COUNT(*) as c FROM lots WHERE is_empty=0`,
+    sql`SELECT COALESCE(SUM(amount),0) as t FROM expenses`,
+  ]);
+  const totalPaid = Number(r1[0].t);
+  const totalPending = Number(r2[0].t);
+  const contributingLots = Number(r3[0].c);
+  const totalActiveLots = Number(r4[0].c);
+  const totalExpenses = Number(r5[0].t);
+  return { totalPaid, totalPending, contributingLots, totalActiveLots, totalExpenses, balance: totalPaid - totalExpenses };
 }
