@@ -1,7 +1,25 @@
 import { neon } from '@neondatabase/serverless';
 import { createHash } from 'crypto';
 
-export const sql = neon(process.env.DATABASE_URL!);
+let _neon: ReturnType<typeof neon> | null = null;
+
+function getNeon() {
+  if (!_neon) {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error('DATABASE_URL não configurada no Vercel.');
+    _neon = neon(url);
+  }
+  return _neon;
+}
+
+// Lazy proxy — neon só é instanciado na primeira query, não no build
+export const sql: ReturnType<typeof neon> = new Proxy(
+  (() => {}) as unknown as ReturnType<typeof neon>,
+  {
+    apply(_t, _ctx, args) { return (getNeon() as unknown as Function).apply(_ctx, args); },
+    get(_t, prop) { return (getNeon() as unknown as Record<string | symbol, unknown>)[prop]; },
+  }
+);
 
 export function hashPassword(plain: string): string {
   return createHash('sha256').update('AsfaltoVille2024_Salt_' + plain).digest('hex');
