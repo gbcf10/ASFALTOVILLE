@@ -8,7 +8,7 @@ function getPg() {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error('DATABASE_URL não configurada no Vercel.');
     // prepare:false obrigatório com o pooler do Supabase
-    _pg = postgres(url, { prepare: false });
+    _pg = postgres(url, { prepare: false, ssl: 'require' });
   }
   return _pg;
 }
