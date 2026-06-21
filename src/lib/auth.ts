@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
 const getSecret = () =>
-  new TextEncoder().encode(process.env.JWT_SECRET || 'AsfaltoVille2024_SecretKey_MudeEsta!');
+  new TextEncoder().encode(process.env.JWT_SECRET || '');
 
 export interface SessionPayload {
   type: 'lot' | 'admin';
