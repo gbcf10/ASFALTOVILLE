@@ -139,13 +139,13 @@ export async function ensureInit() {
 export async function getLotById(id: number): Promise<Lot | null> {
   await ensureInit();
   const rows = await sql`SELECT * FROM lots WHERE id = ${id}`;
-  return (rows[0] as Lot) ?? null;
+  return (rows[0] as unknown as Lot) ?? null;
 }
 
 export async function getDonationsByLotId(lotId: number): Promise<Donation[]> {
   await ensureInit();
   const rows = await sql`SELECT * FROM donations WHERE lot_id = ${lotId} ORDER BY created_at DESC`;
-  return rows as Donation[];
+  return rows as unknown as Donation[];
 }
 
 export async function getLotMonthlyStatus(lotId: number): Promise<MonthlyLotStatus[]> {
@@ -158,7 +158,7 @@ export async function getLotMonthlyStatus(lotId: number): Promise<MonthlyLotStat
     WHERE lot_id = ${lotId} AND reference_month IS NOT NULL
     GROUP BY reference_month ORDER BY reference_month DESC
   `;
-  return (rows as Array<{ reference_month: string; total_paid: number; total_pending: number }>)
+  return (rows as unknown as Array<{ reference_month: string; total_paid: number; total_pending: number }>)
     .map(r => ({ ...r, total_paid: Number(r.total_paid), total_pending: Number(r.total_pending), is_paid: Number(r.total_paid) >= 20 }));
 }
 
