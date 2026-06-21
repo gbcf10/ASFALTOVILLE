@@ -5,8 +5,8 @@ let _pg: ReturnType<typeof postgres> | null = null;
 
 function getPg() {
   if (!_pg) {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error('DATABASE_URL não configurada. Vars disponíveis: ' + Object.keys(process.env).filter(k => !k.includes('SECRET') && !k.includes('PASSWORD')).join(', '));
+    const url = process.env['DATABASE_URL'];
+    if (!url) throw new Error('DATABASE_URL não configurada no servidor.');
     // prepare:false obrigatório com o pooler do Supabase
     _pg = postgres(url, { prepare: false, ssl: { rejectUnauthorized: false }, password: process.env.DB_PASSWORD || undefined });
   }
