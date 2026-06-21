@@ -16,6 +16,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ lotId: lot.id, displayId: lot.display_id, firstAccess: !lot.password_hash });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno', detail: String(err) }, { status: 500 });
   }
 }
