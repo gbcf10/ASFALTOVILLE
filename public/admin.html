@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Asfalto Ville</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#f0fdf4', 100:'#dcfce7', 300:'#86efac', 500:'#22c55e', 600:'#16a34a', 700:'#15803d', 800:'#166534', 900:'#14532d' },
+            asphalt: { 700:'#374151', 800:'#1f2937', 900:'#111827' }
+          }
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    .input { @apply w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all; }
+    .btn-primary { @apply bg-brand-700 hover:bg-brand-800 text-white font-semibold py-2.5 px-5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed; }
+    .btn-secondary { @apply bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2.5 px-5 rounded-lg transition-colors; }
+    .btn-success { @apply bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors; }
+    .btn-danger { @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors; }
+    .card { @apply bg-white rounded-xl shadow-sm border border-gray-100 p-5; }
+    .badge-pago { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800; }
+    .badge-pendente { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800; }
+    .badge-pix { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800; }
+    .badge-dinheiro { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+
+<!-- Nav -->
+<header class="bg-asphalt-900 text-white shadow-lg">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="flex items-center justify-between py-3 border-b border-gray-700">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-base">🛣️</div>
+        <div>
+          <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Administração</p>
+          <p class="text-sm font-bold text-white leading-tight">Asfalto Ville</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:block text-right">
+          <p id="nav-name" class="text-xs text-white font-medium"></p>
+          <p id="nav-role" class="text-xs text-gray-400"></p>
+        </div>
+        <button onclick="logout()" class="text-xs text-gray-400 hover:text-white border border-gray-600 hover:border-gray-400 px-3 py-1.5 rounded-lg transition-colors">Sair</button>
+      </div>
+    </div>
+    <nav class="flex gap-1 py-2 overflow-x-auto" id="nav-links">
+      <button onclick="goSection('painel')" data-section="painel" class="nav-btn active px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-brand-700 text-white">📊 Painel</button>
+      <button onclick="goSection('lotes')" data-section="lotes" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">🏘️ Lotes</button>
+      <button onclick="goSection('relatorio')" data-section="relatorio" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">📋 Relatório</button>
+      <button onclick="goSection('despesas')" data-section="despesas" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">💰 Despesas</button>
+      <button onclick="goSection('conta')" data-section="conta" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">⚙️ Conta</button>
+      <a href="/" class="ml-auto px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">🌐 Site</a>
+    </nav>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-6">
+  <div id="loading" class="text-center py-10 text-gray-400">Carregando...</div>
+
+  <!-- PAINEL -->
+  <div id="section-painel" class="hidden space-y-6">
+    <h1 class="text-2xl font-bold text-gray-800">Painel Geral</h1>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="card text-center"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Arrecadado</p><p id="s-paid" class="text-2xl font-bold text-brand-700"></p></div>
+      <div class="card text-center"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Pendente</p><p id="s-pending" class="text-2xl font-bold text-yellow-600"></p></div>
+      <div class="card text-center"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Despesas</p><p id="s-expenses" class="text-2xl font-bold text-red-600"></p></div>
+      <div class="card text-center"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Saldo</p><p id="s-balance" class="text-2xl font-bold"></p></div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="card text-center"><p id="s-clots" class="text-3xl font-bold text-brand-700"></p><p class="text-gray-500 text-sm mt-1">Lotes colaboraram</p></div>
+      <div class="card text-center"><p id="s-plots" class="text-3xl font-bold text-yellow-600"></p><p class="text-gray-500 text-sm mt-1">Lotes pendentes</p></div>
+    </div>
+    <div id="pending-section" class="card hidden">
+      <h2 class="font-bold text-gray-800 mb-4 flex items-center gap-2"><span class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse inline-block"></span>Aguardando Confirmação <span id="pending-count"></span></h2>
+      <div id="pending-list" class="space-y-3"></div>
+    </div>
+    <div class="card">
+      <h2 class="font-bold text-gray-800 mb-4">Contribuições Recentes</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="recent-table">
+          <thead><tr class="text-left text-gray-400 border-b border-gray-100">
+            <th class="pb-2 font-medium">Lote</th><th class="pb-2 font-medium">Nome</th>
+            <th class="pb-2 font-medium text-right">Valor</th><th class="pb-2 font-medium">Método</th>
+            <th class="pb-2 font-medium">Status</th><th class="pb-2 font-medium">Data</th>
+          </tr></thead>
+          <tbody id="recent-body" class="divide-y divide-gray-50"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOTES -->
+  <div id="section-lotes" class="hidden space-y-5">
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <h1 class="text-2xl font-bold text-gray-800">Gerenciar Lotes</h1>
+      <div id="lots-summary" class="text-sm text-gray-500"></div>
+    </div>
+    <div class="card">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input id="lots-search" class="input" placeholder="Buscar por número ou nome..." oninput="filterLots()">
+        <select id="lots-filter" class="input" onchange="filterLots()">
+          <option value="">Todos os status</option>
+          <option value="pago">Colaboraram</option>
+          <option value="pendente">Pendentes</option>
+          <option value="sem-senha">Sem senha criada</option>
+          <option value="vazio">Vazios</option>
+        </select>
+      </div>
+    </div>
+    <div class="card overflow-hidden p-0">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-100">
+            <tr class="text-left text-gray-500">
+              <th class="px-4 py-3 font-medium">Lote</th>
+              <th class="px-4 py-3 font-medium">Proprietário</th>
+              <th class="px-4 py-3 font-medium">Acesso</th>
+              <th class="px-4 py-3 font-medium text-right">Pago</th>
+              <th class="px-4 py-3 font-medium text-right">Pendente</th>
+              <th class="px-4 py-3 font-medium">Status</th>
+              <th class="px-4 py-3 font-medium">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="lots-body" class="divide-y divide-gray-50"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- RELATÓRIO -->
+  <div id="section-relatorio" class="hidden space-y-6">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <h1 class="text-2xl font-bold text-gray-800">Relatório e Prestação de Contas</h1>
+      <a href="/prestacao" target="_blank" class="text-sm text-brand-600 hover:text-brand-800 font-medium border border-brand-300 px-3 py-1.5 rounded-lg">🌐 Ver pública</a>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="card text-center py-4"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Arrecadado</p><p id="r-paid" class="text-xl font-bold text-brand-700"></p></div>
+      <div class="card text-center py-4"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Despesas</p><p id="r-expenses" class="text-xl font-bold text-red-600"></p></div>
+      <div class="card text-center py-4"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Saldo</p><p id="r-balance" class="text-xl font-bold"></p></div>
+      <div class="card text-center py-4"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Inadimplentes mês</p><p id="r-overdue" class="text-xl font-bold text-red-600"></p><p id="r-overdue-sub" class="text-xs text-gray-400"></p></div>
+    </div>
+    <div class="flex border-b border-gray-200">
+      <button onclick="switchRelatorio('resumo')" id="rt-resumo" class="flex-1 py-3 text-sm font-semibold transition-colors text-brand-700 border-b-2 border-brand-700">📅 Mensal</button>
+      <button onclick="switchRelatorio('inadimplencia')" id="rt-inadimp" class="flex-1 py-3 text-sm font-semibold transition-colors text-gray-400 hover:text-gray-600">❌ Inadimplentes</button>
+      <button onclick="switchRelatorio('despesas')" id="rt-desp" class="flex-1 py-3 text-sm font-semibold transition-colors text-gray-400 hover:text-gray-600">💰 Despesas</button>
+    </div>
+    <div id="rt-panel-resumo"></div>
+    <div id="rt-panel-inadimplencia" class="hidden space-y-4">
+      <div class="card">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <select id="inadimp-month" class="input" onchange="filterInadimp()"></select>
+          <input id="inadimp-search" class="input" placeholder="Buscar por lote ou nome..." oninput="filterInadimp()">
+        </div>
+        <p id="inadimp-count" class="text-xs text-gray-400 mt-2"></p>
+      </div>
+      <div class="card overflow-hidden p-0"><div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100"><tr class="text-left text-gray-500">
+          <th class="px-4 py-3 font-medium">Lote</th><th class="px-4 py-3 font-medium">Proprietário</th>
+          <th class="px-4 py-3 font-medium text-right">Total pago</th>
+          <th class="px-4 py-3 font-medium text-center">Meses atraso</th>
+          <th class="px-4 py-3 font-medium">Status</th>
+        </tr></thead>
+        <tbody id="inadimp-body" class="divide-y divide-gray-50"></tbody>
+      </table></div></div>
+    </div>
+    <div id="rt-panel-despesas" class="hidden"></div>
+  </div>
+
+  <!-- DESPESAS -->
+  <div id="section-despesas" class="hidden space-y-5">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold text-gray-800">Despesas</h1>
+      <button onclick="openExpenseForm()" class="btn-primary">+ Nova Despesa</button>
+    </div>
+    <div class="card text-center py-5">
+      <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Total de Despesas</p>
+      <p id="exp-total" class="text-4xl font-bold text-red-600"></p>
+    </div>
+    <div class="card overflow-hidden p-0">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-100"><tr class="text-left text-gray-500">
+            <th class="px-4 py-3 font-medium">Descrição / Material</th>
+            <th class="px-4 py-3 font-medium">Categoria</th>
+            <th class="px-4 py-3 font-medium">Data</th>
+            <th class="px-4 py-3 font-medium text-right">Valor</th>
+            <th class="px-4 py-3 font-medium text-center">Ações</th>
+          </tr></thead>
+          <tbody id="exp-body" class="divide-y divide-gray-50"></tbody>
+          <tfoot id="exp-foot" class="bg-gray-50 border-t-2 border-gray-200 hidden">
+            <tr><td colspan="3" class="px-4 py-3 font-bold text-gray-700">TOTAL</td>
+            <td id="exp-foot-total" class="px-4 py-3 text-right font-bold text-red-600"></td><td></td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTA -->
+  <div id="section-conta" class="hidden space-y-6 max-w-lg">
+    <div><h1 class="text-2xl font-bold text-gray-800">Configurações da Conta</h1><p class="text-gray-500 text-sm mt-1">Altere seu nome de exibição ou sua senha de acesso.</p></div>
+    <div class="card space-y-4">
+      <div><h2 class="font-bold text-gray-800 text-lg">Nome de exibição</h2><p class="text-gray-400 text-sm">É o nome que aparece no topo do painel administrativo.</p></div>
+      <form onsubmit="saveName(event)" class="space-y-3">
+        <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Novo nome</label><input id="name-input" class="input" placeholder="Ex: Gabriel Ferraz, Síndico Elton..." required></div>
+        <button type="submit" id="btn-name" class="btn-primary w-full">Atualizar nome</button>
+        <div id="name-msg"></div>
+      </form>
+    </div>
+    <div class="card space-y-4">
+      <div><h2 class="font-bold text-gray-800 text-lg">Alterar senha</h2><p class="text-gray-400 text-sm">Mínimo de 6 caracteres.</p></div>
+      <form onsubmit="savePassword(event)" class="space-y-3">
+        <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Senha atual</label><input id="cur-pwd" class="input" type="password" placeholder="Sua senha atual" required></div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Nova senha</label><input id="new-pwd" class="input" type="password" placeholder="Mínimo 6 caracteres" required></div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Confirmar nova senha</label><input id="conf-pwd" class="input" type="password" placeholder="Repita a nova senha" required></div>
+        <button type="submit" id="btn-pass" class="btn-primary w-full">Alterar senha</button>
+        <div id="pass-msg"></div>
+      </form>
+    </div>
+    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
+      <p class="font-semibold mb-1">Credenciais iniciais</p>
+      <p>Síndico: <code class="bg-yellow-100 px-1 rounded">sindico</code> / <code class="bg-yellow-100 px-1 rounded">Sindico@2024</code></p>
+      <p>Admin: <code class="bg-yellow-100 px-1 rounded">admin</code> / <code class="bg-yellow-100 px-1 rounded">Admin@2024</code></p>
+      <p class="text-xs text-yellow-600 mt-2">Altere as senhas acima o quanto antes.</p>
+    </div>
+  </div>
+</main>
+
+<!-- Edit Lot Modal -->
+<div id="lot-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 hidden">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h3 id="lot-modal-title" class="font-bold text-gray-800"></h3>
+      <button onclick="closeLotModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+    </div>
+    <div class="space-y-4">
+      <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Nome do proprietário</label><input id="lot-edit-name" class="input" placeholder="Nome completo"></div>
+      <label class="flex items-center gap-3 cursor-pointer"><input type="checkbox" id="lot-edit-empty" class="w-4 h-4 text-brand-600"><span class="text-sm text-gray-700">Lote vazio (sem morador)</span></label>
+      <div id="reset-pwd-row" class="hidden"><label class="flex items-center gap-3 cursor-pointer"><input type="checkbox" id="lot-edit-reset" class="w-4 h-4 text-red-500"><span class="text-sm text-gray-700">Resetar senha (morador precisará criar nova)</span></label></div>
+      <div class="flex gap-3 pt-2">
+        <button onclick="saveLot()" id="btn-save-lot" class="btn-primary flex-1">Salvar</button>
+        <button onclick="closeLotModal()" class="btn-secondary flex-1">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Expense Modal -->
+<div id="exp-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 hidden">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h3 id="exp-modal-title" class="font-bold text-gray-800">Nova Despesa</h3>
+      <button onclick="closeExpenseModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+    </div>
+    <form onsubmit="saveExpense(event)" class="space-y-4">
+      <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Descrição / Material</label><input id="exp-desc" class="input" placeholder="Ex: Compra de brita, areia..." required></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Valor gasto</label>
+          <div class="relative"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+          <input id="exp-amount" class="input pl-9" type="number" min="0.01" step="0.01" placeholder="0,00" required></div></div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Data</label><input id="exp-date" class="input" type="date" required></div>
+      </div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Categoria</label>
+        <select id="exp-cat" class="input">
+          <option value="geral">Geral</option><option value="material">Material</option>
+          <option value="mão de obra">Mão de obra</option><option value="equipamento">Equipamento</option>
+          <option value="administrativo">Administrativo</option><option value="outro">Outro</option>
+        </select></div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1.5">Observações</label><input id="exp-notes" class="input" placeholder="Quantidade, fornecedor... (opcional)"></div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" id="btn-save-exp" class="btn-primary flex-1">Adicionar</button>
+        <button type="button" onclick="closeExpenseModal()" class="btn-secondary flex-1">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  const fmtDate = s => new Date(s).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+  const fmtDateOnly = s => new Date(s + 'T00:00:00').toLocaleDateString('pt-BR');
+  function fmtMonth(ym) {
+    const months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const [y, m] = ym.split('-');
+    return `${months[parseInt(m)-1]}/${y}`;
+  }
+
+  let currentSection = 'painel';
+  let allLots = [];
+  let relatorioData = null;
+  let editingLotId = null;
+  let editingExpId = null;
+  let expData = null;
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/';
+  }
+
+  function goSection(section) {
+    currentSection = section;
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      const active = btn.dataset.section === section;
+      btn.className = `nav-btn px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${active ? 'bg-brand-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`;
+    });
+    ['painel','lotes','relatorio','despesas','conta'].forEach(s => {
+      document.getElementById(`section-${s}`).classList.toggle('hidden', s !== section);
+    });
+    if (section === 'lotes') loadLots();
+    if (section === 'relatorio') loadRelatorio();
+    if (section === 'despesas') loadExpenses();
+  }
+
+  // ── PAINEL ──────────────────────────────────────────────
+  async function loadDashboard() {
+    const res = await fetch('/api/admin/dashboard');
+    if (!res.ok) return;
+    const { stats, pendingDonations, recentDonations } = await res.json();
+
+    document.getElementById('s-paid').textContent = fmt(stats.totalPaid);
+    document.getElementById('s-pending').textContent = fmt(stats.totalPending);
+    document.getElementById('s-expenses').textContent = fmt(stats.totalExpenses);
+    const bal = document.getElementById('s-balance');
+    bal.textContent = fmt(stats.balance);
+    bal.className = `text-2xl font-bold ${stats.balance >= 0 ? 'text-brand-700' : 'text-red-600'}`;
+    document.getElementById('s-clots').textContent = stats.contributingLots;
+    document.getElementById('s-plots').textContent = stats.totalActiveLots - stats.contributingLots;
+
+    // Pending
+    if (pendingDonations.length > 0) {
+      document.getElementById('pending-section').classList.remove('hidden');
+      document.getElementById('pending-count').textContent = `(${pendingDonations.length})`;
+      document.getElementById('pending-list').innerHTML = pendingDonations.map(d => `
+        <div class="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-xl gap-3" id="pend-${d.id}">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-mono text-xs font-bold text-gray-700">Lote ${d.display_id}</span>
+              <span class="font-semibold text-gray-800">${fmt(d.amount)}</span>
+              <span class="badge-dinheiro">💵 Dinheiro</span>
+            </div>
+            <p class="text-gray-600 text-xs mt-0.5 truncate">${d.owner_name || d.donor_name}</p>
+            ${d.notes ? `<p class="text-gray-400 text-xs italic truncate">${d.notes}</p>` : ''}
+          </div>
+          <div class="flex gap-2 shrink-0">
+            <button onclick="confirmDonation(${d.id})" class="btn-success text-xs py-1.5 px-3">✓</button>
+            <button onclick="rejectDonation(${d.id})" class="btn-danger text-xs py-1.5 px-3">✕</button>
+          </div>
+        </div>`).join('');
+    }
+
+    // Recent
+    document.getElementById('recent-body').innerHTML = recentDonations.length === 0
+      ? '<tr><td colspan="6" class="text-center py-6 text-gray-400">Nenhuma contribuição ainda.</td></tr>'
+      : recentDonations.map(d => `
+        <tr class="hover:bg-gray-50">
+          <td class="py-2 font-mono font-bold text-xs text-gray-700">${d.display_id}</td>
+          <td class="py-2 text-gray-700 max-w-[120px] truncate">${d.owner_name || d.donor_name}</td>
+          <td class="py-2 font-semibold text-gray-800 text-right">${fmt(d.amount)}</td>
+          <td class="py-2"><span class="${d.payment_method === 'pix' ? 'badge-pix' : 'badge-dinheiro'}">${d.payment_method === 'pix' ? '💠 PIX' : '💵 Dinheiro'}</span></td>
+          <td class="py-2"><span class="${d.status === 'pago' ? 'badge-pago' : 'badge-pendente'}">${d.status === 'pago' ? '✓ Pago' : '⏳ Pendente'}</span></td>
+          <td class="py-2 text-gray-400 text-xs whitespace-nowrap">${fmtDate(d.created_at)}</td>
+        </tr>`).join('');
+  }
+
+  async function confirmDonation(id) {
+    await fetch(`/api/donations/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'pago' }) });
+    document.getElementById(`pend-${id}`)?.remove();
+    loadDashboard();
+  }
+
+  async function rejectDonation(id) {
+    if (!confirm('Rejeitar esta contribuição?')) return;
+    await fetch(`/api/donations/${id}`, { method: 'DELETE' });
+    document.getElementById(`pend-${id}`)?.remove();
+    loadDashboard();
+  }
+
+  // ── LOTES ──────────────────────────────────────────────
+  async function loadLots() {
+    const res = await fetch('/api/lots');
+    if (!res.ok) return;
+    allLots = await res.json();
+    renderLots(allLots);
+    const totalPaid = allLots.filter(l => l.total_paid > 0).length;
+    const totalEmpty = allLots.filter(l => l.is_empty).length;
+    const totalSemSenha = allLots.filter(l => !l.password_hash && !l.is_empty).length;
+    document.getElementById('lots-summary').textContent = `${totalPaid} colaboraram · ${totalSemSenha} sem senha · ${totalEmpty} vazios · ${allLots.length} total`;
+  }
+
+  function filterLots() {
+    const search = document.getElementById('lots-search').value.toLowerCase();
+    const filter = document.getElementById('lots-filter').value;
+    const filtered = allLots.filter(l => {
+      if (filter === 'pago' && l.total_paid === 0) return false;
+      if (filter === 'pendente' && (l.total_paid > 0 || l.is_empty)) return false;
+      if (filter === 'sem-senha' && l.password_hash) return false;
+      if (filter === 'vazio' && !l.is_empty) return false;
+      if (search && !l.display_id.includes(search) && !(l.owner_name || '').toLowerCase().includes(search)) return false;
+      return true;
+    });
+    renderLots(filtered);
+  }
+
+  function renderLots(lots) {
+    document.getElementById('lots-body').innerHTML = lots.length === 0
+      ? '<tr><td colspan="7" class="text-center py-8 text-gray-400">Nenhum lote encontrado.</td></tr>'
+      : lots.map(l => `
+        <tr class="hover:bg-gray-50 ${l.is_empty ? 'opacity-40' : ''}">
+          <td class="px-4 py-3 font-mono font-bold text-gray-700">${l.display_id}</td>
+          <td class="px-4 py-3 max-w-[140px]"><span class="${l.owner_name ? 'text-gray-700' : 'text-gray-400 italic'}">${l.owner_name || 'Sem nome'}</span></td>
+          <td class="px-4 py-3"><span class="text-xs font-medium ${l.password_hash ? 'text-green-600' : 'text-orange-500'}">${l.password_hash ? '✓ Cadastrado' : 'Sem senha'}</span></td>
+          <td class="px-4 py-3 text-right font-semibold text-brand-700">${l.total_paid > 0 ? fmt(l.total_paid) : '—'}</td>
+          <td class="px-4 py-3 text-right text-yellow-600">${l.total_pending > 0 ? fmt(l.total_pending) : '—'}</td>
+          <td class="px-4 py-3">${l.is_empty ? '<span class="badge-pendente">Vazio</span>' : l.total_paid > 0 ? '<span class="badge-pago">✓ Colaborou</span>' : '<span class="badge-pendente">Pendente</span>'}</td>
+          <td class="px-4 py-3">
+            <div class="flex gap-2">
+              <button onclick="openLotModal(${l.id})" class="text-xs text-brand-600 hover:text-brand-800 font-medium">Editar</button>
+              <a href="/lote/${l.id}" class="text-xs text-gray-400 hover:text-gray-600 font-medium">Ver</a>
+            </div>
+          </td>
+        </tr>`).join('');
+  }
+
+  function openLotModal(id) {
+    const l = allLots.find(x => x.id === id);
+    if (!l) return;
+    editingLotId = id;
+    document.getElementById('lot-modal-title').textContent = `Lote ${l.display_id}`;
+    document.getElementById('lot-edit-name').value = l.owner_name || '';
+    document.getElementById('lot-edit-empty').checked = !!l.is_empty;
+    document.getElementById('lot-edit-reset').checked = false;
+    document.getElementById('reset-pwd-row').classList.toggle('hidden', !l.password_hash);
+    document.getElementById('lot-modal').classList.remove('hidden');
+  }
+
+  function closeLotModal() { document.getElementById('lot-modal').classList.add('hidden'); editingLotId = null; }
+
+  async function saveLot() {
+    const btn = document.getElementById('btn-save-lot');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+    await fetch(`/api/lots/${editingLotId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ownerName: document.getElementById('lot-edit-name').value,
+        isEmpty: document.getElementById('lot-edit-empty').checked,
+        resetPassword: document.getElementById('lot-edit-reset').checked,
+      }),
+    });
+    btn.disabled = false; btn.textContent = 'Salvar';
+    closeLotModal();
+    loadLots();
+  }
+
+  // ── RELATÓRIO ──────────────────────────────────────────
+  async function loadRelatorio() {
+    if (relatorioData) { renderRelatorio(); return; }
+    const res = await fetch('/api/admin/relatorio');
+    if (!res.ok) return;
+    relatorioData = await res.json();
+    renderRelatorio();
+  }
+
+  function renderRelatorio() {
+    const { stats, monthly, allMonths, lotReport, expenses, currentMonth, isOverdue } = relatorioData;
+    document.getElementById('r-paid').textContent = fmt(stats.totalPaid);
+    document.getElementById('r-expenses').textContent = fmt(stats.totalExpenses);
+    const rb = document.getElementById('r-balance');
+    rb.textContent = fmt(stats.balance);
+    rb.className = `text-xl font-bold ${stats.balance >= 0 ? 'text-brand-700' : 'text-red-600'}`;
+    const overdueThisMonth = lotReport.filter(l => !l.currentMonthPaid).length;
+    document.getElementById('r-overdue').textContent = overdueThisMonth;
+    document.getElementById('r-overdue-sub').textContent = isOverdue ? 'após dia 10' : 'antes do dia 10';
+
+    // Monthly table
+    document.getElementById('rt-panel-resumo').innerHTML = `<div class="card overflow-hidden p-0"><div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100"><tr class="text-left text-gray-500">
+        <th class="px-4 py-3 font-medium">Mês</th><th class="px-4 py-3 font-medium text-right">Arrecadado</th>
+        <th class="px-4 py-3 font-medium text-right">Lotes</th><th class="px-4 py-3 font-medium text-right">Despesas</th>
+        <th class="px-4 py-3 font-medium text-right">Resultado</th>
+      </tr></thead>
+      <tbody class="divide-y divide-gray-50">${monthly.length === 0 ? '<tr><td colspan="5" class="text-center py-8 text-gray-400">Nenhum dado ainda.</td></tr>' : monthly.map(m => {
+        const res = m.total_paid - m.total_expenses;
+        return `<tr class="hover:bg-gray-50"><td class="px-4 py-3 font-medium text-gray-700">${fmtMonth(m.reference_month)}</td>
+          <td class="px-4 py-3 text-right font-semibold text-brand-700">${fmt(m.total_paid)}</td>
+          <td class="px-4 py-3 text-right text-gray-600">${m.contributing_lots}</td>
+          <td class="px-4 py-3 text-right text-red-600">${fmt(m.total_expenses)}</td>
+          <td class="px-4 py-3 text-right font-bold ${res >= 0 ? 'text-brand-600' : 'text-red-600'}">${fmt(res)}</td></tr>`;
+      }).join('')}</tbody>
+      ${monthly.length > 0 ? `<tfoot class="bg-gray-50 border-t-2 border-gray-200 font-bold"><tr>
+        <td class="px-4 py-3 text-gray-700">TOTAL</td>
+        <td class="px-4 py-3 text-right text-brand-700">${fmt(stats.totalPaid)}</td>
+        <td class="px-4 py-3 text-right text-gray-600">${stats.contributingLots}</td>
+        <td class="px-4 py-3 text-right text-red-600">${fmt(stats.totalExpenses)}</td>
+        <td class="px-4 py-3 text-right ${stats.balance >= 0 ? 'text-brand-700' : 'text-red-600'}">${fmt(stats.balance)}</td>
+      </tr></tfoot>` : ''}
+    </table></div></div>`;
+
+    // Inadimplencia month selector
+    const sel = document.getElementById('inadimp-month');
+    sel.innerHTML = allMonths.map(m => `<option value="${m}">${fmtMonth(m)}${m === currentMonth ? ' (atual)' : ''}</option>`).join('');
+    sel.value = currentMonth;
+    filterInadimp();
+
+    // Despesas tab
+    document.getElementById('rt-panel-despesas').innerHTML = `<div class="card overflow-hidden p-0"><div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100"><tr class="text-left text-gray-500">
+        <th class="px-4 py-3 font-medium">Descrição</th><th class="px-4 py-3 font-medium">Mês ref.</th>
+        <th class="px-4 py-3 font-medium">Data</th><th class="px-4 py-3 font-medium">Categoria</th>
+        <th class="px-4 py-3 font-medium text-right">Valor</th>
+      </tr></thead>
+      <tbody class="divide-y divide-gray-50">${expenses.length === 0 ? '<tr><td colspan="5" class="text-center py-8 text-gray-400">Nenhuma despesa ainda.</td></tr>' : expenses.map(e => `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3"><p class="font-medium text-gray-800">${e.description}</p>${e.notes ? `<p class="text-xs text-gray-400 italic">${e.notes}</p>` : ''}</td>
+          <td class="px-4 py-3 text-gray-500">${e.reference_month ? fmtMonth(e.reference_month) : '—'}</td>
+          <td class="px-4 py-3 text-gray-500 whitespace-nowrap">${fmtDateOnly(e.expense_date)}</td>
+          <td class="px-4 py-3 text-gray-500 capitalize">${e.category}</td>
+          <td class="px-4 py-3 text-right font-semibold text-red-600">${fmt(e.amount)}</td>
+        </tr>`).join('')}</tbody>
+      ${expenses.length > 0 ? `<tfoot class="bg-gray-50 border-t-2 border-gray-200"><tr>
+        <td colspan="4" class="px-4 py-3 font-bold text-gray-700">TOTAL DESPESAS</td>
+        <td class="px-4 py-3 text-right font-bold text-red-600">${fmt(expenses.reduce((s,e) => s+e.amount, 0))}</td>
+      </tr></tfoot>` : ''}
+    </table></div></div>`;
+  }
+
+  function switchRelatorio(view) {
+    ['resumo','inadimplencia','despesas'].forEach(v => {
+      document.getElementById(`rt-panel-${v}`).classList.toggle('hidden', v !== view);
+      const btn = document.getElementById(`rt-${v === 'inadimplencia' ? 'inadimp' : v === 'despesas' ? 'desp' : v}`);
+      const active = v === view;
+      btn.className = `flex-1 py-3 text-sm font-semibold transition-colors ${active ? 'text-brand-700 border-b-2 border-brand-700' : 'text-gray-400 hover:text-gray-600'}`;
+    });
+  }
+
+  function filterInadimp() {
+    if (!relatorioData) return;
+    const { lotReport, currentMonth, isOverdue } = relatorioData;
+    const filterMonth = document.getElementById('inadimp-month').value;
+    const search = document.getElementById('inadimp-search').value.toLowerCase();
+    const filtered = lotReport.filter(l => {
+      const ms = l.monthData.find(m => m.month === filterMonth);
+      const isLate = !ms?.isOk && (filterMonth < currentMonth || (filterMonth === currentMonth && isOverdue));
+      if (!isLate) return false;
+      if (search && !l.display_id.includes(search) && !(l.owner_name || '').toLowerCase().includes(search)) return false;
+      return true;
+    });
+    document.getElementById('inadimp-count').textContent = `${filtered.length} lote(s) sem pagamento em ${fmtMonth(filterMonth)}${filterMonth === currentMonth && !isOverdue ? ' (mês ainda não vencido)' : ''}`;
+    document.getElementById('inadimp-body').innerHTML = filtered.length === 0
+      ? '<tr><td colspan="5" class="text-center py-8 text-gray-400">Nenhum lote em atraso neste mês. ✓</td></tr>'
+      : filtered.map(l => {
+          const ms = l.monthData.find(m => m.month === filterMonth);
+          return `<tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 font-mono font-bold text-gray-700">${l.display_id}</td>
+            <td class="px-4 py-3 max-w-[140px]"><span class="${l.owner_name ? 'text-gray-700' : 'text-gray-400 italic'}">${l.owner_name || 'Sem nome'}</span></td>
+            <td class="px-4 py-3 text-right font-semibold text-brand-700">${l.totalPaid > 0 ? fmt(l.totalPaid) : '—'}</td>
+            <td class="px-4 py-3 text-center">${l.overdueCount > 0 ? `<span class="badge-pendente">${l.overdueCount} ${l.overdueCount === 1 ? 'mês' : 'meses'}</span>` : '<span class="badge-pago">Em dia</span>'}</td>
+            <td class="px-4 py-3">${ms?.isOk ? '<span class="badge-pago">✓ Pago</span>' : ms?.pending > 0 ? `<span class="badge-pendente">Pendente ${fmt(ms.pending)}</span>` : '<span class="text-red-600 text-xs font-medium">Não pago</span>'}</td>
+          </tr>`;
+        }).join('');
+  }
+
+  // ── DESPESAS ──────────────────────────────────────────
+  async function loadExpenses() {
+    const res = await fetch('/api/expenses');
+    if (!res.ok) return;
+    expData = await res.json();
+    renderExpenses();
+  }
+
+  function renderExpenses() {
+    const { expenses, total } = expData;
+    document.getElementById('exp-total').textContent = fmt(total);
+    if (expenses.length === 0) {
+      document.getElementById('exp-body').innerHTML = '<tr><td colspan="5" class="text-center py-10 text-gray-400">Nenhuma despesa registrada ainda.</td></tr>';
+      document.getElementById('exp-foot').classList.add('hidden');
+    } else {
+      document.getElementById('exp-body').innerHTML = expenses.map(e => `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3"><p class="font-medium text-gray-800">${e.description}</p>${e.notes ? `<p class="text-xs text-gray-400 italic mt-0.5">${e.notes}</p>` : ''}</td>
+          <td class="px-4 py-3 text-gray-500 capitalize">${e.category}</td>
+          <td class="px-4 py-3 text-gray-500 whitespace-nowrap">${fmtDateOnly(e.expense_date)}</td>
+          <td class="px-4 py-3 text-right font-semibold text-red-600">${fmt(e.amount)}</td>
+          <td class="px-4 py-3"><div class="flex items-center justify-center gap-3">
+            <button onclick="openExpenseForm(${e.id})" class="text-xs text-brand-600 hover:text-brand-800 font-medium">Editar</button>
+            <span class="text-gray-200">|</span>
+            <button onclick="deleteExpense(${e.id})" class="text-xs text-red-400 hover:text-red-600">Excluir</button>
+          </div></td>
+        </tr>`).join('');
+      document.getElementById('exp-foot').classList.remove('hidden');
+      document.getElementById('exp-foot-total').textContent = fmt(total);
+    }
+  }
+
+  function openExpenseForm(id = null) {
+    editingExpId = id;
+    document.getElementById('exp-modal-title').textContent = id ? 'Editar Despesa' : 'Nova Despesa';
+    document.getElementById('btn-save-exp').textContent = id ? 'Salvar alterações' : 'Adicionar';
+    if (id && expData) {
+      const e = expData.expenses.find(x => x.id === id);
+      if (e) {
+        document.getElementById('exp-desc').value = e.description;
+        document.getElementById('exp-amount').value = e.amount;
+        document.getElementById('exp-cat').value = e.category;
+        document.getElementById('exp-date').value = e.expense_date;
+        document.getElementById('exp-notes').value = e.notes || '';
+      }
+    } else {
+      document.getElementById('exp-desc').value = '';
+      document.getElementById('exp-amount').value = '';
+      document.getElementById('exp-cat').value = 'geral';
+      document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('exp-notes').value = '';
+    }
+    document.getElementById('exp-modal').classList.remove('hidden');
+  }
+
+  function closeExpenseModal() { document.getElementById('exp-modal').classList.add('hidden'); editingExpId = null; }
+
+  async function saveExpense(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-exp');
+    btn.disabled = true;
+    const payload = {
+      description: document.getElementById('exp-desc').value,
+      amount: parseFloat(document.getElementById('exp-amount').value),
+      category: document.getElementById('exp-cat').value,
+      expense_date: document.getElementById('exp-date').value,
+      notes: document.getElementById('exp-notes').value,
+    };
+    if (editingExpId) {
+      await fetch(`/api/expenses/${editingExpId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    } else {
+      await fetch('/api/expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    }
+    btn.disabled = false;
+    closeExpenseModal();
+    relatorioData = null; // invalidate cache
+    loadExpenses();
+  }
+
+  async function deleteExpense(id) {
+    if (!confirm('Excluir esta despesa?')) return;
+    await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+    relatorioData = null;
+    loadExpenses();
+  }
+
+  // ── CONTA ──────────────────────────────────────────────
+  function msgBox(el, type, text) {
+    const isOk = type === 'success';
+    el.innerHTML = `<p class="text-sm mt-2 px-3 py-2 rounded-lg font-medium ${isOk ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}">${isOk ? '✓ ' : '⚠ '}${text}</p>`;
+  }
+
+  async function saveName(e) {
+    e.preventDefault();
+    const name = document.getElementById('name-input').value.trim();
+    if (!name) return;
+    const btn = document.getElementById('btn-name');
+    btn.disabled = true;
+    const res = await fetch('/api/admin/conta', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    btn.disabled = false;
+    if (res.ok) {
+      msgBox(document.getElementById('name-msg'), 'success', 'Nome atualizado com sucesso!');
+      document.getElementById('name-input').value = '';
+      document.getElementById('nav-name').textContent = name;
+    } else {
+      const d = await res.json();
+      msgBox(document.getElementById('name-msg'), 'error', d.error || 'Erro ao salvar');
+    }
+  }
+
+  async function savePassword(e) {
+    e.preventDefault();
+    const cur = document.getElementById('cur-pwd').value;
+    const np = document.getElementById('new-pwd').value;
+    const cp = document.getElementById('conf-pwd').value;
+    const msgEl = document.getElementById('pass-msg');
+    if (np !== cp) { msgBox(msgEl, 'error', 'As senhas não coincidem'); return; }
+    if (np.length < 6) { msgBox(msgEl, 'error', 'A nova senha deve ter pelo menos 6 caracteres'); return; }
+    const btn = document.getElementById('btn-pass');
+    btn.disabled = true;
+    const res = await fetch('/api/admin/conta', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: cur, newPassword: np }) });
+    btn.disabled = false;
+    if (res.ok) {
+      msgBox(msgEl, 'success', 'Senha alterada com sucesso!');
+      document.getElementById('cur-pwd').value = '';
+      document.getElementById('new-pwd').value = '';
+      document.getElementById('conf-pwd').value = '';
+    } else {
+      const d = await res.json();
+      msgBox(msgEl, 'error', d.error || 'Erro ao alterar senha');
+    }
+  }
+
+  // ── INIT ───────────────────────────────────────────────
+  async function init() {
+    const session = await fetch('/api/auth/session').then(r => r.ok ? r.json() : null);
+    if (!session || session.type !== 'admin') { window.location.href = '/'; return; }
+    document.getElementById('nav-name').textContent = session.name || session.username || '';
+    document.getElementById('nav-role').textContent = session.role === 'superadmin' ? 'Super Admin' : 'Síndico';
+    document.getElementById('loading').classList.add('hidden');
+    goSection('painel');
+    loadDashboard();
+  }
+
+  init();
+</script>
+</body>
+</html>

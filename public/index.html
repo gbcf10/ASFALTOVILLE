@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asfalto Condomínio Ville</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#f0fdf4', 100:'#dcfce7', 300:'#86efac', 500:'#22c55e', 600:'#16a34a', 700:'#15803d', 800:'#166534', 900:'#14532d' },
+            asphalt: { 700:'#374151', 800:'#1f2937', 900:'#111827' }
+          }
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    .input { @apply w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all; }
+    .btn-primary { @apply bg-brand-700 hover:bg-brand-800 text-white font-semibold py-2.5 px-5 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-brand-900 to-asphalt-900 flex flex-col items-center justify-center px-4">
+
+<div class="w-full max-w-md">
+  <div class="text-center mb-8">
+    <div class="w-16 h-16 bg-brand-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3">🛣️</div>
+    <h1 class="text-2xl font-bold text-white">Asfalto Condomínio Ville</h1>
+    <p class="text-brand-300 text-sm mt-1">Acesse sua área</p>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <!-- Tabs -->
+    <div class="flex border-b border-gray-100">
+      <button id="tab-lote" onclick="switchTab('lote')"
+        class="flex-1 py-4 text-sm font-semibold transition-colors text-brand-700 border-b-2 border-brand-700 bg-brand-50">
+        🏠 Acesso por Lote
+      </button>
+      <button id="tab-admin" onclick="switchTab('admin')"
+        class="flex-1 py-4 text-sm font-semibold transition-colors text-gray-400 hover:text-gray-600">
+        🔑 Administração
+      </button>
+    </div>
+
+    <div class="p-6">
+      <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4"></div>
+
+      <!-- LOT TAB -->
+      <div id="panel-lote">
+        <!-- Step 1: enter lot number -->
+        <div id="step-lot">
+          <form onsubmit="checkLot(event)">
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Número do seu lote</label>
+              <input id="lot-number" class="input text-center text-2xl font-bold tracking-widest"
+                placeholder="Ex: 42" inputmode="numeric" maxlength="3" required autofocus
+                oninput="this.value=this.value.replace(/\D/g,'').slice(0,3)">
+              <p class="text-xs text-gray-400 mt-1 text-center">Lotes de 1 a 256</p>
+            </div>
+            <button type="submit" id="btn-check" class="btn-primary w-full">Continuar →</button>
+          </form>
+        </div>
+
+        <!-- Step 2a: first access -->
+        <div id="step-first" class="hidden">
+          <div class="bg-brand-50 border border-brand-200 rounded-xl p-3 text-center mb-4">
+            <p class="text-brand-800 font-semibold text-sm">Lote <span id="display-first"></span> — Primeiro acesso</p>
+            <p class="text-brand-600 text-xs mt-0.5">Crie sua senha para acessar.</p>
+          </div>
+          <form onsubmit="setPassword(event)" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Seu nome completo</label>
+              <input id="owner-name" class="input" placeholder="Nome completo" required autofocus>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Criar senha (mín. 6 caracteres)</label>
+              <input id="new-password" class="input" type="password" placeholder="Crie uma senha" required autocomplete="new-password">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Confirmar senha</label>
+              <input id="confirm-password" class="input" type="password" placeholder="Repita a senha" required autocomplete="new-password">
+            </div>
+            <button type="submit" id="btn-first" class="btn-primary w-full">Criar senha e entrar</button>
+            <button type="button" onclick="resetLot()" class="w-full text-sm text-gray-400 hover:text-gray-600 text-center mt-1">← Voltar</button>
+          </form>
+        </div>
+
+        <!-- Step 2b: enter password -->
+        <div id="step-password" class="hidden">
+          <div class="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center mb-4">
+            <p class="text-gray-700 font-semibold text-sm">Lote <span id="display-pass"></span></p>
+          </div>
+          <form onsubmit="loginLot(event)" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">Sua senha</label>
+              <input id="lot-password" class="input" type="password" placeholder="Digite sua senha" required autofocus autocomplete="current-password">
+            </div>
+            <button type="submit" id="btn-login" class="btn-primary w-full">Entrar</button>
+            <button type="button" onclick="resetLot()" class="w-full text-sm text-gray-400 hover:text-gray-600 text-center">← Trocar lote</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ADMIN TAB -->
+      <div id="panel-admin" class="hidden">
+        <form onsubmit="loginAdmin(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Usuário</label>
+            <input id="admin-user" class="input" placeholder="sindico ou admin" required autocomplete="username">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Senha</label>
+            <input id="admin-pass" class="input" type="password" placeholder="Senha administrativa" required autocomplete="current-password">
+          </div>
+          <button type="submit" id="btn-admin" class="btn-primary w-full">Acessar painel</button>
+        </form>
+      </div>
+
+      <div class="mt-5 text-center">
+        <a href="/prestacao" class="text-sm text-gray-400 hover:text-gray-600">📊 Prestação de contas pública</a>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-center text-brand-400 text-xs mt-5">Esqueceu a senha? Fale com o síndico.</p>
+</div>
+
+<script>
+  let lotId = null;
+  let displayId = '';
+  let loading = false;
+
+  function setLoading(btn, on, label) {
+    btn.disabled = on;
+    btn.textContent = on ? 'Aguarde...' : label;
+    loading = on;
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('error-box');
+    box.textContent = msg;
+    box.classList.remove('hidden');
+  }
+
+  function clearError() {
+    document.getElementById('error-box').classList.add('hidden');
+  }
+
+  function switchTab(tab) {
+    clearError();
+    document.getElementById('panel-lote').classList.toggle('hidden', tab !== 'lote');
+    document.getElementById('panel-admin').classList.toggle('hidden', tab !== 'admin');
+    const lotBtn = document.getElementById('tab-lote');
+    const admBtn = document.getElementById('tab-admin');
+    if (tab === 'lote') {
+      lotBtn.className = 'flex-1 py-4 text-sm font-semibold transition-colors text-brand-700 border-b-2 border-brand-700 bg-brand-50';
+      admBtn.className = 'flex-1 py-4 text-sm font-semibold transition-colors text-gray-400 hover:text-gray-600';
+    } else {
+      admBtn.className = 'flex-1 py-4 text-sm font-semibold transition-colors text-brand-700 border-b-2 border-brand-700 bg-brand-50';
+      lotBtn.className = 'flex-1 py-4 text-sm font-semibold transition-colors text-gray-400 hover:text-gray-600';
+    }
+    if (tab !== 'lote') resetLot();
+  }
+
+  function normalizeLot(raw) {
+    const n = parseInt(raw.replace(/\D/g, ''), 10);
+    if (isNaN(n) || n < 1 || n > 256) return '';
+    return String(n).padStart(3, '0');
+  }
+
+  async function checkLot(e) {
+    e.preventDefault();
+    clearError();
+    const normalized = normalizeLot(document.getElementById('lot-number').value);
+    if (!normalized) { showError('Número inválido. Digite de 1 a 256.'); return; }
+    const btn = document.getElementById('btn-check');
+    setLoading(btn, true, 'Continuar →');
+    try {
+      const res = await fetch('/api/auth/check-lot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayId: normalized }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Lote não encontrado'); return; }
+      lotId = data.lotId;
+      displayId = data.displayId;
+      document.getElementById('step-lot').classList.add('hidden');
+      if (data.firstAccess) {
+        document.getElementById('display-first').textContent = displayId;
+        document.getElementById('step-first').classList.remove('hidden');
+      } else {
+        document.getElementById('display-pass').textContent = displayId;
+        document.getElementById('step-password').classList.remove('hidden');
+      }
+    } finally {
+      setLoading(btn, false, 'Continuar →');
+    }
+  }
+
+  async function setPassword(e) {
+    e.preventDefault();
+    clearError();
+    const name = document.getElementById('owner-name').value.trim();
+    const pwd = document.getElementById('new-password').value;
+    const conf = document.getElementById('confirm-password').value;
+    if (pwd.length < 6) { showError('A senha deve ter ao menos 6 caracteres.'); return; }
+    if (pwd !== conf) { showError('As senhas não coincidem.'); return; }
+    if (!name) { showError('Informe seu nome.'); return; }
+    const btn = document.getElementById('btn-first');
+    setLoading(btn, true, 'Criar senha e entrar');
+    try {
+      const res = await fetch('/api/auth/set-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lotId, password: pwd, ownerName: name }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Erro ao criar senha'); return; }
+      window.location.href = `/lote/${lotId}`;
+    } finally {
+      setLoading(btn, false, 'Criar senha e entrar');
+    }
+  }
+
+  async function loginLot(e) {
+    e.preventDefault();
+    clearError();
+    const pwd = document.getElementById('lot-password').value;
+    const btn = document.getElementById('btn-login');
+    setLoading(btn, true, 'Entrar');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'lot', lotId, password: pwd }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Senha incorreta'); return; }
+      window.location.href = `/lote/${lotId}`;
+    } finally {
+      setLoading(btn, false, 'Entrar');
+    }
+  }
+
+  async function loginAdmin(e) {
+    e.preventDefault();
+    clearError();
+    const username = document.getElementById('admin-user').value;
+    const password = document.getElementById('admin-pass').value;
+    const btn = document.getElementById('btn-admin');
+    setLoading(btn, true, 'Acessar painel');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'admin', username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Credenciais inválidas'); return; }
+      window.location.href = '/admin';
+    } finally {
+      setLoading(btn, false, 'Acessar painel');
+    }
+  }
+
+  function resetLot() {
+    lotId = null; displayId = '';
+    clearError();
+    document.getElementById('lot-number').value = '';
+    document.getElementById('step-lot').classList.remove('hidden');
+    document.getElementById('step-first').classList.add('hidden');
+    document.getElementById('step-password').classList.add('hidden');
+  }
+
+  // Check if already logged in
+  fetch('/api/auth/session').then(r => r.ok ? r.json() : null).then(session => {
+    if (!session) return;
+    if (session.type === 'admin') window.location.href = '/admin';
+    else if (session.type === 'lot') window.location.href = `/lote/${session.id}`;
+  });
+</script>
+</body>
+</html>
