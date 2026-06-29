@@ -234,6 +234,57 @@
   </div>
 </main>
 
+<!-- Register Payment Modal -->
+<div id="pay-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 hidden">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h3 class="font-bold text-gray-800">Registrar Pagamento</h3>
+        <p id="pay-modal-lot" class="text-sm text-brand-700 font-semibold mt-0.5"></p>
+      </div>
+      <button onclick="closePayModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+    </div>
+    <div id="pay-error" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4"></div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Mês de referência</label>
+        <select id="pay-month" class="input"></select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Valor pago</label>
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+          <input id="pay-amount" class="input pl-9 text-lg font-semibold" type="number" min="20" step="0.01" placeholder="20,00">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Forma de pagamento</label>
+        <div class="grid grid-cols-2 gap-3">
+          <button type="button" onclick="selectPayMethod('pix')" id="pay-btn-pix"
+            class="py-3 rounded-xl border-2 border-brand-600 bg-brand-50 text-brand-700 font-semibold text-sm flex flex-col items-center gap-1">
+            <span class="text-xl">💠</span>PIX
+          </button>
+          <button type="button" onclick="selectPayMethod('dinheiro')" id="pay-btn-din"
+            class="py-3 rounded-xl border-2 border-gray-200 text-gray-500 font-semibold text-sm flex flex-col items-center gap-1 hover:border-gray-300">
+            <span class="text-xl">💵</span>Dinheiro
+          </button>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Observações <span class="text-gray-400 font-normal">(opcional)</span></label>
+        <input id="pay-notes" class="input" placeholder="Ex: pagamento referente a jan/2024...">
+      </div>
+      <div class="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+        <p class="text-green-800 text-xs font-medium">✓ O pagamento será registrado como <strong>já confirmado</strong> automaticamente.</p>
+      </div>
+      <div class="flex gap-3 pt-1">
+        <button onclick="submitPayment()" id="btn-pay-submit" class="btn-primary flex-1">Confirmar Pagamento</button>
+        <button onclick="closePayModal()" class="btn-secondary flex-1">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Edit Lot Modal -->
 <div id="lot-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 hidden">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -421,7 +472,8 @@
           <td class="px-4 py-3 text-right text-yellow-600">${l.total_pending > 0 ? fmt(l.total_pending) : '—'}</td>
           <td class="px-4 py-3">${l.is_empty ? '<span class="badge-pendente">Vazio</span>' : l.total_paid > 0 ? '<span class="badge-pago">✓ Colaborou</span>' : '<span class="badge-pendente">Pendente</span>'}</td>
           <td class="px-4 py-3">
-            <div class="flex gap-2">
+            <div class="flex gap-2 flex-wrap">
+              <button onclick="openPayModal(${l.id})" class="text-xs text-green-700 hover:text-green-900 font-semibold border border-green-300 bg-green-50 px-2 py-1 rounded-lg">💰 Pagar</button>
               <button onclick="openLotModal(${l.id})" class="text-xs text-brand-600 hover:text-brand-800 font-medium">Editar</button>
               <a href="/lote/${l.id}" class="text-xs text-gray-400 hover:text-gray-600 font-medium">Ver</a>
             </div>
@@ -698,6 +750,87 @@
       const d = await res.json();
       msgBox(msgEl, 'error', d.error || 'Erro ao alterar senha');
     }
+  }
+
+  // ── REGISTRAR PAGAMENTO ────────────────────────────────
+  let payingLotId = null;
+  let payMethod = 'pix';
+
+  function getSelectableMonths() {
+    const now = new Date();
+    const result = [];
+    for (let i = 0; i < 6; i++) {
+      let m = now.getMonth() + 1 - i;
+      let y = now.getFullYear();
+      if (m <= 0) { m += 12; y--; }
+      const val = `${y}-${String(m).padStart(2,'0')}`;
+      result.push({ value: val, label: fmtMonth(val) + (i === 0 ? ' (atual)' : '') });
+    }
+    return result;
+  }
+
+  function openPayModal(id) {
+    const l = allLots.find(x => x.id === id);
+    if (!l) return;
+    payingLotId = id;
+    document.getElementById('pay-modal-lot').textContent = `Lote ${l.display_id}${l.owner_name ? ' — ' + l.owner_name : ''}`;
+    document.getElementById('pay-amount').value = '20';
+    document.getElementById('pay-notes').value = '';
+    document.getElementById('pay-error').classList.add('hidden');
+    const sel = document.getElementById('pay-month');
+    sel.innerHTML = getSelectableMonths().map(m => `<option value="${m.value}">${m.label}</option>`).join('');
+    selectPayMethod('pix');
+    document.getElementById('pay-modal').classList.remove('hidden');
+  }
+
+  function closePayModal() {
+    document.getElementById('pay-modal').classList.add('hidden');
+    payingLotId = null;
+  }
+
+  function selectPayMethod(method) {
+    payMethod = method;
+    const active = 'border-brand-600 bg-brand-50 text-brand-700';
+    const inactive = 'border-gray-200 text-gray-500 hover:border-gray-300';
+    document.getElementById('pay-btn-pix').className = `py-3 rounded-xl border-2 ${method === 'pix' ? active : inactive} font-semibold text-sm flex flex-col items-center gap-1`;
+    document.getElementById('pay-btn-din').className = `py-3 rounded-xl border-2 ${method === 'dinheiro' ? active : inactive} font-semibold text-sm flex flex-col items-center gap-1`;
+  }
+
+  async function submitPayment() {
+    const amount = parseFloat(document.getElementById('pay-amount').value);
+    const refMonth = document.getElementById('pay-month').value;
+    const notes = document.getElementById('pay-notes').value;
+    const errBox = document.getElementById('pay-error');
+    if (!amount || amount < 20) {
+      errBox.textContent = 'Valor mínimo é R$ 20,00';
+      errBox.classList.remove('hidden');
+      return;
+    }
+    errBox.classList.add('hidden');
+    const btn = document.getElementById('btn-pay-submit');
+    btn.disabled = true; btn.textContent = 'Registrando...';
+    const lot = allLots.find(x => x.id === payingLotId);
+    const res = await fetch('/api/donations', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lotId: payingLotId,
+        donorName: lot?.owner_name || `Lote ${lot?.display_id}`,
+        amount,
+        paymentMethod: payMethod,
+        referenceMonth: refMonth,
+        notes: notes || undefined,
+      }),
+    });
+    btn.disabled = false; btn.textContent = 'Confirmar Pagamento';
+    if (!res.ok) {
+      const d = await res.json();
+      errBox.textContent = d.error || 'Erro ao registrar';
+      errBox.classList.remove('hidden');
+      return;
+    }
+    closePayModal();
+    loadLots();
+    loadDashboard();
   }
 
   // ── INIT ───────────────────────────────────────────────

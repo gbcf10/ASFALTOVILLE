@@ -15,9 +15,10 @@ router.post('/', authMiddleware, async (req, res) => {
     if (!lotCheck[0]) return res.status(404).json({ error: 'Lote não encontrado' });
 
     const refMonth = referenceMonth || currentMonth();
-    const status = paymentMethod === 'pix' ? 'pago' : 'pendente';
-    const confirmedAt = paymentMethod === 'pix' ? new Date().toISOString() : null;
-    const confirmedBy = paymentMethod === 'pix' ? 'auto-pix' : null;
+    const isAdmin = req.session.type === 'admin';
+    const status = isAdmin ? 'pago' : (paymentMethod === 'pix' ? 'pago' : 'pendente');
+    const confirmedAt = status === 'pago' ? new Date().toISOString() : null;
+    const confirmedBy = isAdmin ? (req.session.username || 'admin') : (paymentMethod === 'pix' ? 'auto-pix' : null);
 
     const result = await sql`
       INSERT INTO donations (lot_id, donor_name, amount, payment_method, status, reference_month, notes, confirmed_at, confirmed_by)
