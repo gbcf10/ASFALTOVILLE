@@ -7,11 +7,15 @@ const { authMiddleware, adminOnly } = require('../lib/auth');
 router.get('/', authMiddleware, adminOnly, async (req, res) => {
   try {
     await ensureInit();
+    const { month } = req.query;
+
     const lots = await sql`
       SELECT l.*,
         COALESCE(SUM(CASE WHEN d.status='pago' THEN d.amount ELSE 0 END), 0) as total_paid,
         COALESCE(SUM(CASE WHEN d.status='pendente' THEN d.amount ELSE 0 END), 0) as total_pending,
-        COUNT(d.id) as donation_count
+        COUNT(d.id) as donation_count,
+        COALESCE(SUM(CASE WHEN d.status='pago' AND d.reference_month=${month || ''} THEN d.amount ELSE 0 END), 0) as month_paid,
+        COALESCE(SUM(CASE WHEN d.status='pendente' AND d.reference_month=${month || ''} THEN d.amount ELSE 0 END), 0) as month_pending
       FROM lots l
       LEFT JOIN donations d ON d.lot_id = l.id
       GROUP BY l.id ORDER BY l.id
@@ -21,6 +25,8 @@ router.get('/', authMiddleware, adminOnly, async (req, res) => {
       total_paid: Number(l.total_paid),
       total_pending: Number(l.total_pending),
       donation_count: Number(l.donation_count),
+      month_paid: Number(l.month_paid),
+      month_pending: Number(l.month_pending),
     })));
   } catch (err) {
     console.error(err);

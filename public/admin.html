@@ -103,13 +103,16 @@
       <h1 class="text-2xl font-bold text-gray-800">Gerenciar Lotes</h1>
       <div id="lots-summary" class="text-sm text-gray-500"></div>
     </div>
-    <div class="card">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div class="card space-y-3">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <input id="lots-search" class="input" placeholder="Buscar por número ou nome..." oninput="filterLots()">
+        <select id="lots-month" class="input" onchange="loadLots()">
+          <option value="">Todos os meses</option>
+        </select>
         <select id="lots-filter" class="input" onchange="filterLots()">
           <option value="">Todos os status</option>
-          <option value="pago">Colaboraram</option>
-          <option value="pendente">Pendentes</option>
+          <option value="pago">Pagaram no mês</option>
+          <option value="pendente">Não pagaram no mês</option>
           <option value="sem-senha">Sem senha criada</option>
           <option value="vazio">Vazios</option>
         </select>
@@ -123,9 +126,9 @@
               <th class="px-4 py-3 font-medium">Lote</th>
               <th class="px-4 py-3 font-medium">Proprietário</th>
               <th class="px-4 py-3 font-medium">Acesso</th>
-              <th class="px-4 py-3 font-medium text-right">Pago</th>
-              <th class="px-4 py-3 font-medium text-right">Pendente</th>
-              <th class="px-4 py-3 font-medium">Status</th>
+              <th class="px-4 py-3 font-medium text-right" id="col-paid-label">Pago</th>
+              <th class="px-4 py-3 font-medium text-right" id="col-pend-label">Pendente</th>
+              <th class="px-4 py-3 font-medium" id="col-status-label">Status</th>
               <th class="px-4 py-3 font-medium">Ações</th>
             </tr>
           </thead>
@@ -246,6 +249,10 @@
     </div>
     <div id="pay-error" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4"></div>
     <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nome do morador</label>
+        <input id="pay-name" class="input" placeholder="Nome completo do morador">
+      </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Mês de referência</label>
         <select id="pay-month" class="input"></select>
@@ -435,50 +442,85 @@
   }
 
   // ── LOTES ──────────────────────────────────────────────
+  function populateMonthFilter() {
+    const sel = document.getElementById('lots-month');
+    if (sel.options.length > 1) return;
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      let m = now.getMonth() + 1 - i, y = now.getFullYear();
+      if (m <= 0) { m += 12; y--; }
+      const val = `${y}-${String(m).padStart(2,'0')}`;
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = fmtMonth(val) + (i === 0 ? ' (atual)' : '');
+      sel.appendChild(opt);
+    }
+  }
+
   async function loadLots() {
-    const res = await fetch('/api/lots');
+    populateMonthFilter();
+    const month = document.getElementById('lots-month').value;
+    const url = month ? `/api/lots?month=${month}` : '/api/lots';
+    const res = await fetch(url);
     if (!res.ok) return;
     allLots = await res.json();
-    renderLots(allLots);
+    const hasMonth = !!month;
+    document.getElementById('col-paid-label').textContent = hasMonth ? `Pago em ${fmtMonth(month)}` : 'Total pago';
+    document.getElementById('col-pend-label').textContent = hasMonth ? 'Pendente mês' : 'Pendente';
+    document.getElementById('col-status-label').textContent = hasMonth ? `Status ${fmtMonth(month)}` : 'Status geral';
+    filterLots();
     const totalPaid = allLots.filter(l => l.total_paid > 0).length;
     const totalEmpty = allLots.filter(l => l.is_empty).length;
     const totalSemSenha = allLots.filter(l => !l.password_hash && !l.is_empty).length;
-    document.getElementById('lots-summary').textContent = `${totalPaid} colaboraram · ${totalSemSenha} sem senha · ${totalEmpty} vazios · ${allLots.length} total`;
+    document.getElementById('lots-summary').textContent = `${totalPaid} colaboraram ao total · ${totalSemSenha} sem senha · ${totalEmpty} vazios · ${allLots.length} total`;
   }
 
   function filterLots() {
     const search = document.getElementById('lots-search').value.toLowerCase();
     const filter = document.getElementById('lots-filter').value;
+    const month = document.getElementById('lots-month').value;
     const filtered = allLots.filter(l => {
-      if (filter === 'pago' && l.total_paid === 0) return false;
-      if (filter === 'pendente' && (l.total_paid > 0 || l.is_empty)) return false;
+      if (filter === 'pago' && (month ? l.month_paid < 20 : l.total_paid === 0)) return false;
+      if (filter === 'pendente' && (month ? l.month_paid >= 20 || l.is_empty : l.total_paid > 0 || l.is_empty)) return false;
       if (filter === 'sem-senha' && l.password_hash) return false;
       if (filter === 'vazio' && !l.is_empty) return false;
       if (search && !l.display_id.includes(search) && !(l.owner_name || '').toLowerCase().includes(search)) return false;
       return true;
     });
-    renderLots(filtered);
+    renderLots(filtered, month);
   }
 
-  function renderLots(lots) {
+  function renderLots(lots, month) {
     document.getElementById('lots-body').innerHTML = lots.length === 0
       ? '<tr><td colspan="7" class="text-center py-8 text-gray-400">Nenhum lote encontrado.</td></tr>'
-      : lots.map(l => `
-        <tr class="hover:bg-gray-50 ${l.is_empty ? 'opacity-40' : ''}">
-          <td class="px-4 py-3 font-mono font-bold text-gray-700">${l.display_id}</td>
-          <td class="px-4 py-3 max-w-[140px]"><span class="${l.owner_name ? 'text-gray-700' : 'text-gray-400 italic'}">${l.owner_name || 'Sem nome'}</span></td>
-          <td class="px-4 py-3"><span class="text-xs font-medium ${l.password_hash ? 'text-green-600' : 'text-orange-500'}">${l.password_hash ? '✓ Cadastrado' : 'Sem senha'}</span></td>
-          <td class="px-4 py-3 text-right font-semibold text-brand-700">${l.total_paid > 0 ? fmt(l.total_paid) : '—'}</td>
-          <td class="px-4 py-3 text-right text-yellow-600">${l.total_pending > 0 ? fmt(l.total_pending) : '—'}</td>
-          <td class="px-4 py-3">${l.is_empty ? '<span class="badge-pendente">Vazio</span>' : l.total_paid > 0 ? '<span class="badge-pago">✓ Colaborou</span>' : '<span class="badge-pendente">Pendente</span>'}</td>
-          <td class="px-4 py-3">
-            <div class="flex gap-2 flex-wrap">
-              <button onclick="openPayModal(${l.id})" class="text-xs text-green-700 hover:text-green-900 font-semibold border border-green-300 bg-green-50 px-2 py-1 rounded-lg">💰 Pagar</button>
-              <button onclick="openLotModal(${l.id})" class="text-xs text-brand-600 hover:text-brand-800 font-medium">Editar</button>
-              <a href="/lote/${l.id}" class="text-xs text-gray-400 hover:text-gray-600 font-medium">Ver</a>
-            </div>
-          </td>
-        </tr>`).join('');
+      : lots.map(l => {
+          const paidVal = month ? l.month_paid : l.total_paid;
+          const pendVal = month ? l.month_pending : l.total_pending;
+          const paid = month ? l.month_paid >= 20 : l.total_paid > 0;
+          const statusBadge = l.is_empty
+            ? '<span class="badge-pendente">Vazio</span>'
+            : paid
+              ? '<span class="badge-pago">✓ Pagou</span>'
+              : month
+                ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">❌ Não pagou</span>'
+                : '<span class="badge-pendente">Pendente</span>';
+          return `
+          <tr class="hover:bg-gray-50 ${l.is_empty ? 'opacity-40' : ''}">
+            <td class="px-4 py-3 font-mono font-bold text-gray-700">${l.display_id}</td>
+            <td class="px-4 py-3 max-w-[140px]"><span class="${l.owner_name ? 'text-gray-700' : 'text-gray-400 italic'}">${l.owner_name || 'Sem nome'}</span></td>
+            <td class="px-4 py-3"><span class="text-xs font-medium ${l.password_hash ? 'text-green-600' : 'text-orange-500'}">${l.password_hash ? '✓ Cadastrado' : 'Sem senha'}</span></td>
+            <td class="px-4 py-3 text-right font-semibold text-brand-700">${paidVal > 0 ? fmt(paidVal) : '—'}</td>
+            <td class="px-4 py-3 text-right text-yellow-600">${pendVal > 0 ? fmt(pendVal) : '—'}</td>
+            <td class="px-4 py-3">${statusBadge}</td>
+            <td class="px-4 py-3">
+              <div class="flex gap-2 flex-wrap">
+                <button onclick="openPayModal(${l.id})" class="text-xs text-green-700 hover:text-green-900 font-semibold border border-green-300 bg-green-50 px-2 py-1 rounded-lg">💰 Pagar</button>
+                <button onclick="openLotModal(${l.id})" class="text-xs text-brand-600 hover:text-brand-800 font-medium">Editar</button>
+                <a href="/lote/${l.id}" class="text-xs text-gray-400 hover:text-gray-600 font-medium">Ver</a>
+              </div>
+            </td>
+          </tr>`;
+        }).join('');
   }
 
   function openLotModal(id) {
@@ -773,7 +815,8 @@
     const l = allLots.find(x => x.id === id);
     if (!l) return;
     payingLotId = id;
-    document.getElementById('pay-modal-lot').textContent = `Lote ${l.display_id}${l.owner_name ? ' — ' + l.owner_name : ''}`;
+    document.getElementById('pay-modal-lot').textContent = `Lote ${l.display_id}`;
+    document.getElementById('pay-name').value = l.owner_name || '';
     document.getElementById('pay-amount').value = '20';
     document.getElementById('pay-notes').value = '';
     document.getElementById('pay-error').classList.add('hidden');
@@ -810,11 +853,12 @@
     const btn = document.getElementById('btn-pay-submit');
     btn.disabled = true; btn.textContent = 'Registrando...';
     const lot = allLots.find(x => x.id === payingLotId);
+    const name = document.getElementById('pay-name').value.trim();
     const res = await fetch('/api/donations', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         lotId: payingLotId,
-        donorName: lot?.owner_name || `Lote ${lot?.display_id}`,
+        donorName: name || lot?.owner_name || `Lote ${lot?.display_id}`,
         amount,
         paymentMethod: payMethod,
         referenceMonth: refMonth,
