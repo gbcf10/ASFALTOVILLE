@@ -88,8 +88,10 @@
         <table class="w-full text-sm" id="recent-table">
           <thead><tr class="text-left text-gray-400 border-b border-gray-100">
             <th class="pb-2 font-medium">Lote</th><th class="pb-2 font-medium">Nome</th>
+            <th class="pb-2 font-medium">Mês</th>
             <th class="pb-2 font-medium text-right">Valor</th><th class="pb-2 font-medium">Método</th>
             <th class="pb-2 font-medium">Status</th><th class="pb-2 font-medium">Data</th>
+            <th class="pb-2 font-medium">Ações</th>
           </tr></thead>
           <tbody id="recent-body" class="divide-y divide-gray-50"></tbody>
         </table>
@@ -154,6 +156,7 @@
       <button onclick="switchRelatorio('resumo')" id="rt-resumo" class="flex-1 py-3 text-sm font-semibold transition-colors text-brand-700 border-b-2 border-brand-700">📅 Mensal</button>
       <button onclick="switchRelatorio('inadimplencia')" id="rt-inadimp" class="flex-1 py-3 text-sm font-semibold transition-colors text-gray-400 hover:text-gray-600">❌ Inadimplentes</button>
       <button onclick="switchRelatorio('despesas')" id="rt-desp" class="flex-1 py-3 text-sm font-semibold transition-colors text-gray-400 hover:text-gray-600">💰 Despesas</button>
+      <button onclick="switchRelatorio('fechamento')" id="rt-fechamento" class="flex-1 py-3 text-sm font-semibold transition-colors text-gray-400 hover:text-gray-600">🔒 Fechamento</button>
     </div>
     <div id="rt-panel-resumo"></div>
     <div id="rt-panel-inadimplencia" class="hidden space-y-4">
@@ -175,6 +178,7 @@
       </table></div></div>
     </div>
     <div id="rt-panel-despesas" class="hidden"></div>
+    <div id="rt-panel-fechamento" class="hidden space-y-4"></div>
   </div>
 
   <!-- DESPESAS -->
@@ -357,6 +361,16 @@
   let editingLotId = null;
   let editingExpId = null;
   let expData = null;
+  let recentDonationsData = [];
+  let editingDonationId = null;
+  let lotsIndex = [];
+
+  async function loadLotsIndex() {
+    if (lotsIndex.length) return;
+    const res = await fetch('/api/lots');
+    if (!res.ok) return;
+    lotsIndex = await res.json();
+  }
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -415,17 +429,83 @@
     }
 
     // Recent
-    document.getElementById('recent-body').innerHTML = recentDonations.length === 0
-      ? '<tr><td colspan="6" class="text-center py-6 text-gray-400">Nenhuma contribuição ainda.</td></tr>'
-      : recentDonations.map(d => `
-        <tr class="hover:bg-gray-50">
-          <td class="py-2 font-mono font-bold text-xs text-gray-700">${d.display_id}</td>
+    recentDonationsData = recentDonations;
+    renderRecentDonations();
+  }
+
+  function renderRecentDonations() {
+    document.getElementById('recent-body').innerHTML = recentDonationsData.length === 0
+      ? '<tr><td colspan="8" class="text-center py-6 text-gray-400">Nenhuma contribuição ainda.</td></tr>'
+      : recentDonationsData.map(d => donationRowHtml(d)).join('');
+  }
+
+  function donationRowHtml(d) {
+    if (editingDonationId === d.id) {
+      const months = getSelectableMonths();
+      const monthOptions = months.some(m => m.value === d.reference_month)
+        ? months
+        : [{ value: d.reference_month, label: fmtMonth(d.reference_month) }, ...months];
+      const lotOptions = lotsIndex.map(l => `<option value="${l.id}" ${l.id === d.lot_id ? 'selected' : ''}>${l.display_id} - ${l.owner_name || 'Sem nome'}</option>`).join('');
+      return `
+        <tr class="bg-brand-50" id="don-row-${d.id}">
+          <td class="py-2"><select id="edit-lot-${d.id}" class="input text-xs py-1">${lotOptions}</select></td>
           <td class="py-2 text-gray-700 max-w-[120px] truncate">${d.owner_name || d.donor_name}</td>
-          <td class="py-2 font-semibold text-gray-800 text-right">${fmt(d.amount)}</td>
-          <td class="py-2"><span class="${d.payment_method === 'pix' ? 'badge-pix' : 'badge-dinheiro'}">${d.payment_method === 'pix' ? '💠 PIX' : '💵 Dinheiro'}</span></td>
+          <td class="py-2"><select id="edit-month-${d.id}" class="input text-xs py-1">${monthOptions.map(m => `<option value="${m.value}" ${m.value === d.reference_month ? 'selected' : ''}>${m.label}</option>`).join('')}</select></td>
+          <td class="py-2 text-right"><input id="edit-amount-${d.id}" type="number" min="20" step="0.01" value="${d.amount}" class="input text-xs py-1 w-24 ml-auto"></td>
+          <td class="py-2"><select id="edit-method-${d.id}" class="input text-xs py-1">
+            <option value="pix" ${d.payment_method === 'pix' ? 'selected' : ''}>💠 PIX</option>
+            <option value="dinheiro" ${d.payment_method === 'dinheiro' ? 'selected' : ''}>💵 Dinheiro</option>
+          </select></td>
           <td class="py-2"><span class="${d.status === 'pago' ? 'badge-pago' : 'badge-pendente'}">${d.status === 'pago' ? '✓ Pago' : '⏳ Pendente'}</span></td>
           <td class="py-2 text-gray-400 text-xs whitespace-nowrap">${fmtDate(d.created_at)}</td>
-        </tr>`).join('');
+          <td class="py-2 whitespace-nowrap">
+            <button onclick="saveEditDonation(${d.id})" class="text-xs text-brand-700 font-semibold mr-2">Salvar</button>
+            <button onclick="cancelEditDonation()" class="text-xs text-gray-400">Cancelar</button>
+          </td>
+        </tr>`;
+    }
+    return `
+      <tr class="hover:bg-gray-50" id="don-row-${d.id}">
+        <td class="py-2 font-mono font-bold text-xs text-gray-700">${d.display_id}</td>
+        <td class="py-2 text-gray-700 max-w-[120px] truncate">${d.owner_name || d.donor_name}</td>
+        <td class="py-2 text-gray-500 text-xs whitespace-nowrap">${fmtMonth(d.reference_month)}</td>
+        <td class="py-2 font-semibold text-gray-800 text-right">${fmt(d.amount)}</td>
+        <td class="py-2"><span class="${d.payment_method === 'pix' ? 'badge-pix' : 'badge-dinheiro'}">${d.payment_method === 'pix' ? '💠 PIX' : '💵 Dinheiro'}</span></td>
+        <td class="py-2"><span class="${d.status === 'pago' ? 'badge-pago' : 'badge-pendente'}">${d.status === 'pago' ? '✓ Pago' : '⏳ Pendente'}</span></td>
+        <td class="py-2 text-gray-400 text-xs whitespace-nowrap">${fmtDate(d.created_at)}</td>
+        <td class="py-2"><button onclick="startEditDonation(${d.id})" class="text-xs text-brand-600 hover:text-brand-800 font-medium">Editar</button></td>
+      </tr>`;
+  }
+
+  async function startEditDonation(id) {
+    await loadLotsIndex();
+    editingDonationId = id;
+    renderRecentDonations();
+  }
+
+  function cancelEditDonation() {
+    editingDonationId = null;
+    renderRecentDonations();
+  }
+
+  async function saveEditDonation(id) {
+    const lotId = parseInt(document.getElementById(`edit-lot-${id}`).value, 10);
+    const amount = parseFloat(document.getElementById(`edit-amount-${id}`).value);
+    const paymentMethod = document.getElementById(`edit-method-${id}`).value;
+    const referenceMonth = document.getElementById(`edit-month-${id}`).value;
+    if (!amount || amount < 20) { alert('Valor mínimo é R$ 20,00'); return; }
+    const res = await fetch(`/api/donations/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lotId, amount, paymentMethod, referenceMonth }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || 'Erro ao salvar');
+      return;
+    }
+    editingDonationId = null;
+    relatorioData = null; // invalidate cache, totais do mês podem ter mudado
+    await loadDashboard();
   }
 
   async function confirmDonation(id) {
@@ -603,6 +683,31 @@
     sel.value = currentMonth;
     filterInadimp();
 
+    // Fechamento do mês
+    document.getElementById('rt-panel-fechamento').innerHTML = `
+      <div class="card">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Mês do fechamento</label>
+        <select id="fech-month" class="input" onchange="renderFechamento()"></select>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="card text-center py-4"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Arrecadado no mês</p><p id="fech-paid" class="text-xl font-bold text-brand-700"></p></div>
+        <div class="card text-center py-4"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Despesas no mês</p><p id="fech-expenses" class="text-xl font-bold text-red-600"></p></div>
+        <div class="card text-center py-4"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Saldo do mês</p><p id="fech-balance" class="text-xl font-bold"></p></div>
+        <div class="card text-center py-4"><p id="fech-count" class="text-xl font-bold text-gray-700"></p><p class="text-xs text-gray-400 mt-1">lotes pagaram / total</p></div>
+      </div>
+      <div class="card overflow-hidden p-0"><div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100"><tr class="text-left text-gray-500">
+          <th class="px-4 py-3 font-medium">Lote</th><th class="px-4 py-3 font-medium">Proprietário</th>
+          <th class="px-4 py-3 font-medium text-right">Valor pago no mês</th>
+          <th class="px-4 py-3 font-medium">Status</th>
+        </tr></thead>
+        <tbody id="fech-body" class="divide-y divide-gray-50"></tbody>
+      </table></div></div>`;
+    const fechSel = document.getElementById('fech-month');
+    fechSel.innerHTML = allMonths.map(m => `<option value="${m}">${fmtMonth(m)}${m === currentMonth ? ' (atual)' : ''}</option>`).join('');
+    fechSel.value = currentMonth;
+    renderFechamento();
+
     // Despesas tab
     document.getElementById('rt-panel-despesas').innerHTML = `<div class="card overflow-hidden p-0"><div class="overflow-x-auto"><table class="w-full text-sm">
       <thead class="bg-gray-50 border-b border-gray-100"><tr class="text-left text-gray-500">
@@ -626,12 +731,45 @@
   }
 
   function switchRelatorio(view) {
-    ['resumo','inadimplencia','despesas'].forEach(v => {
+    ['resumo','inadimplencia','despesas','fechamento'].forEach(v => {
       document.getElementById(`rt-panel-${v}`).classList.toggle('hidden', v !== view);
       const btn = document.getElementById(`rt-${v === 'inadimplencia' ? 'inadimp' : v === 'despesas' ? 'desp' : v}`);
       const active = v === view;
       btn.className = `flex-1 py-3 text-sm font-semibold transition-colors ${active ? 'text-brand-700 border-b-2 border-brand-700' : 'text-gray-400 hover:text-gray-600'}`;
     });
+  }
+
+  function renderFechamento() {
+    if (!relatorioData) return;
+    const { monthly, lotReport } = relatorioData;
+    const month = document.getElementById('fech-month').value;
+    const m = monthly.find(x => x.reference_month === month);
+    const paidTotal = m ? Number(m.total_paid) : 0;
+    const expTotal = m ? Number(m.total_expenses) : 0;
+    document.getElementById('fech-paid').textContent = fmt(paidTotal);
+    document.getElementById('fech-expenses').textContent = fmt(expTotal);
+    const balEl = document.getElementById('fech-balance');
+    const bal = paidTotal - expTotal;
+    balEl.textContent = fmt(bal);
+    balEl.className = `text-xl font-bold ${bal >= 0 ? 'text-brand-700' : 'text-red-600'}`;
+
+    const rows = lotReport.map(l => ({ l, ms: l.monthData.find(d => d.month === month) }));
+    const paidCount = rows.filter(r => r.ms?.isOk).length;
+    document.getElementById('fech-count').textContent = `${paidCount} / ${rows.length}`;
+
+    document.getElementById('fech-body').innerHTML = rows.map(({ l, ms }) => {
+      const statusBadge = ms?.isOk
+        ? '<span class="badge-pago">✓ Pagou</span>'
+        : ms?.pending > 0
+          ? `<span class="badge-pendente">Pendente ${fmt(ms.pending)}</span>`
+          : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">❌ Não pagou</span>';
+      return `<tr class="hover:bg-gray-50">
+        <td class="px-4 py-3 font-mono font-bold text-gray-700">${l.display_id}</td>
+        <td class="px-4 py-3 max-w-[140px]"><span class="${l.owner_name ? 'text-gray-700' : 'text-gray-400 italic'}">${l.owner_name || 'Sem nome'}</span></td>
+        <td class="px-4 py-3 text-right font-semibold text-brand-700">${(ms?.paid ?? 0) > 0 ? fmt(ms.paid) : '—'}</td>
+        <td class="px-4 py-3">${statusBadge}</td>
+      </tr>`;
+    }).join('');
   }
 
   function filterInadimp() {

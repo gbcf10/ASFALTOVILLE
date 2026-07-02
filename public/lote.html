@@ -262,6 +262,18 @@
     } else {
       bannerHtml = `<div class="bg-green-50 border-2 border-green-200 rounded-xl p-4"><div class="flex items-start gap-3"><span class="text-2xl">✅</span><div><p class="font-bold text-green-800">Em dia em ${fmtMonth(currentMonth)}!</p><p class="text-green-600 text-sm mt-0.5">Você contribuiu ${fmt(statusMap.get(currentMonth)?.total_paid ?? 0)} este mês.</p></div></div></div>`;
     }
+
+    // Mês anterior: aviso informativo (contribuição nunca é obrigatória)
+    let prevMo = (() => {
+      const [y, m] = currentMonth.split('-').map(Number);
+      let mo = m - 1, yr = y;
+      if (mo <= 0) { mo += 12; yr--; }
+      return `${yr}-${String(mo).padStart(2,'0')}`;
+    })();
+    const prevPaid = statusMap.get(prevMo)?.is_paid ?? false;
+    if (!prevPaid) {
+      bannerHtml += `<div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-3"><div class="flex items-start gap-3"><span class="text-xl">ℹ️</span><div><p class="font-semibold text-blue-800 text-sm">Você ainda pode contribuir com ${fmtMonth(prevMo)}${!paidThisMonth ? ` e com ${fmtMonth(currentMonth)}` : ''}</p><p class="text-blue-600 text-xs mt-0.5">A contribuição não é obrigatória. Se quiser regularizar um mês anterior, é só escolher o mês desejado ao registrar o pagamento abaixo.</p></div></div></div>`;
+    }
     document.getElementById('status-banner').innerHTML = bannerHtml;
 
     // Monthly list

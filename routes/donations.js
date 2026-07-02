@@ -36,22 +36,57 @@ router.patch('/:id', authMiddleware, async (req, res) => {
   try {
     await ensureInit();
     const donationId = parseInt(req.params.id, 10);
-    const { status } = req.body;
-    if (!['pago', 'pendente'].includes(status)) return res.status(400).json({ error: 'Status inválido' });
 
     const rows = await sql`SELECT * FROM donations WHERE id = ${donationId}`;
     const donation = rows[0];
     if (!donation) return res.status(404).json({ error: 'Contribuição não encontrada' });
 
     if (req.session.type === 'lot') {
+      const { status } = req.body;
       if (req.session.id !== donation.lot_id) return res.status(403).json({ error: 'Acesso negado' });
       if (status !== 'pago') return res.status(403).json({ error: 'Acesso negado' });
+
+      const confirmedAt = new Date().toISOString();
+      await sql`UPDATE donations SET status = 'pago', confirmed_at = ${confirmedAt}, confirmed_by = 'auto-pix' WHERE id = ${donationId}`;
+      return res.json({ ok: true });
     }
 
-    const confirmedAt = status === 'pago' ? new Date().toISOString() : null;
-    const confirmedBy = status === 'pago' ? (req.session.type === 'admin' ? (req.session.username || 'admin') : 'auto-pix') : null;
+    // Admin: edição multi-campo (status, forma de pagamento, lote, mês, valor)
+    const { status, paymentMethod, lotId, referenceMonth, amount } = req.body;
 
-    await sql`UPDATE donations SET status = ${status}, confirmed_at = ${confirmedAt}, confirmed_by = ${confirmedBy} WHERE id = ${donationId}`;
+    if (status !== undefined && !['pago', 'pendente'].includes(status)) {
+      return res.status(400).json({ error: 'Status inválido' });
+    }
+    if (paymentMethod !== undefined && !['pix', 'dinheiro'].includes(paymentMethod)) {
+      return res.status(400).json({ error: 'Forma de pagamento inválida' });
+    }
+    if (referenceMonth !== undefined && !/^\d{4}-\d{2}$/.test(referenceMonth)) {
+      return res.status(400).json({ error: 'Mês de referência inválido' });
+    }
+    if (amount !== undefined && !(amount >= 20)) {
+      return res.status(400).json({ error: 'Valor mínimo é R$ 20,00' });
+    }
+    let newLotId = donation.lot_id;
+    if (lotId !== undefined) {
+      const lotCheck = await sql`SELECT id FROM lots WHERE id = ${lotId}`;
+      if (!lotCheck[0]) return res.status(404).json({ error: 'Lote não encontrado' });
+      newLotId = lotId;
+    }
+
+    const newStatus = status !== undefined ? status : donation.status;
+    const statusChanged = status !== undefined && status !== donation.status;
+    const confirmedAt = statusChanged ? (newStatus === 'pago' ? new Date().toISOString() : null) : donation.confirmed_at;
+    const confirmedBy = statusChanged ? (newStatus === 'pago' ? (req.session.username || 'admin') : null) : donation.confirmed_by;
+
+    await sql`UPDATE donations SET
+      status = ${newStatus},
+      payment_method = ${paymentMethod !== undefined ? paymentMethod : donation.payment_method},
+      lot_id = ${newLotId},
+      reference_month = ${referenceMonth !== undefined ? referenceMonth : donation.reference_month},
+      amount = ${amount !== undefined ? amount : donation.amount},
+      confirmed_at = ${confirmedAt},
+      confirmed_by = ${confirmedBy}
+      WHERE id = ${donationId}`;
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
