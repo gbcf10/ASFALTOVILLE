@@ -462,7 +462,7 @@
             <div class="flex items-center gap-2 flex-wrap">
               <span class="font-mono text-xs font-bold text-gray-700">Lote ${d.display_id}</span>
               <span class="font-semibold text-gray-800">${fmt(d.amount)}</span>
-              <span class="badge-dinheiro">💵 Dinheiro</span>
+              <span class="${d.payment_method === 'pix' ? 'badge-pix' : 'badge-dinheiro'}">${d.payment_method === 'pix' ? '💠 PIX' : '💵 Dinheiro'}</span>
             </div>
             <p class="text-gray-600 text-xs mt-0.5 truncate">${d.owner_name || d.donor_name}</p>
             ${d.notes ? `<p class="text-gray-400 text-xs italic truncate">${d.notes}</p>` : ''}

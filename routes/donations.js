@@ -16,9 +16,9 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const refMonth = referenceMonth || currentMonth();
     const isAdmin = req.session.type === 'admin';
-    const status = isAdmin ? 'pago' : (paymentMethod === 'pix' ? 'pago' : 'pendente');
+    const status = isAdmin ? 'pago' : 'pendente';
     const confirmedAt = status === 'pago' ? new Date().toISOString() : null;
-    const confirmedBy = isAdmin ? (req.session.username || 'admin') : (paymentMethod === 'pix' ? 'auto-pix' : null);
+    const confirmedBy = isAdmin ? (req.session.username || 'admin') : null;
 
     const result = await sql`
       INSERT INTO donations (lot_id, donor_name, amount, payment_method, status, reference_month, notes, confirmed_at, confirmed_by)
