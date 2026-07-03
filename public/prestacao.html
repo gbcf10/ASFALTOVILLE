@@ -55,6 +55,10 @@
       </div>
     </div>
 
+    <button onclick="shareGeneral()" class="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl transition-colors">
+      🔗 Compartilhar prestação de contas
+    </button>
+
     <div id="pending-banner" class="hidden bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3">
       <p id="pending-text" class="text-yellow-700 text-sm"></p>
     </div>
@@ -87,10 +91,40 @@
     return `${months[parseInt(m)-1]}/${y}`;
   }
 
+  let lastStats = null;
+  let lastMonthly = [];
+
+  async function shareContent(text) {
+    const url = window.location.origin + '/prestacao';
+    const fullText = `${text}\n\n${url}`;
+    if (navigator.share) {
+      try { await navigator.share({ text: fullText }); } catch (e) { /* usuário cancelou */ }
+    } else {
+      await navigator.clipboard.writeText(fullText);
+      alert('Texto copiado! Cole onde quiser compartilhar (WhatsApp, etc).');
+    }
+  }
+
+  function shareGeneral() {
+    if (!lastStats) return;
+    const text = `📊 *Prestação de Contas* — Condomínio Ville (Asfaltamento)\n\n💰 Arrecadado: ${fmt(lastStats.totalPaid)}\n💸 Despesas: ${fmt(lastStats.totalExpenses)}\n📈 Saldo: ${fmt(lastStats.balance)}`;
+    shareContent(text);
+  }
+
+  function shareMonth(i) {
+    const m = lastMonthly[i];
+    if (!m) return;
+    const prevBalance = lastMonthly[i + 1]?.running_balance ?? 0;
+    const text = `📊 *Prestação de Contas* — ${fmtMonth(m.reference_month)} — Condomínio Ville\n\nSaldo do mês anterior: ${fmt(prevBalance)}\n(+) Arrecadado no mês: ${fmt(m.total_paid)} (${m.contributing_lots} lotes)\n(−) Despesas no mês: ${fmt(m.total_expenses)}\n= Saldo final do mês: ${fmt(m.running_balance)}`;
+    shareContent(text);
+  }
+
   async function init() {
     const res = await fetch('/api/public/prestacao');
     if (!res.ok) { document.getElementById('loading').textContent = 'Erro ao carregar dados.'; return; }
     const { stats, monthly, expenses } = await res.json();
+    lastStats = stats;
+    lastMonthly = monthly;
 
     document.getElementById('total-paid').textContent = fmt(stats.totalPaid);
     document.getElementById('total-expenses').textContent = fmt(stats.totalExpenses);
@@ -111,8 +145,9 @@
         const prevBalance = monthly[i + 1]?.running_balance ?? 0;
         return `
         <div class="border border-gray-100 rounded-xl overflow-hidden">
-          <div class="bg-gray-50 px-4 py-3">
+          <div class="bg-gray-50 px-4 py-3 flex items-center justify-between">
             <h3 class="font-bold text-gray-700">${fmtMonth(m.reference_month)}</h3>
+            <button onclick="shareMonth(${i})" class="text-xs text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1">🔗 Compartilhar</button>
           </div>
           <div class="px-4 py-3 space-y-2 text-sm">
             <div class="flex items-center justify-between text-gray-500">
