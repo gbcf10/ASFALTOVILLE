@@ -473,8 +473,19 @@
         <td class="py-2"><span class="${d.payment_method === 'pix' ? 'badge-pix' : 'badge-dinheiro'}">${d.payment_method === 'pix' ? '💠 PIX' : '💵 Dinheiro'}</span></td>
         <td class="py-2"><span class="${d.status === 'pago' ? 'badge-pago' : 'badge-pendente'}">${d.status === 'pago' ? '✓ Pago' : '⏳ Pendente'}</span></td>
         <td class="py-2 text-gray-400 text-xs whitespace-nowrap">${fmtDate(d.created_at)}</td>
-        <td class="py-2"><button onclick="startEditDonation(${d.id})" class="text-xs text-brand-600 hover:text-brand-800 font-medium">Editar</button></td>
+        <td class="py-2 whitespace-nowrap">
+          <button onclick="startEditDonation(${d.id})" class="text-xs text-brand-600 hover:text-brand-800 font-medium">Editar</button>
+          <span class="text-gray-200 mx-1">|</span>
+          <button onclick="deleteDonation(${d.id})" class="text-xs text-red-400 hover:text-red-600 font-medium">Excluir</button>
+        </td>
       </tr>`;
+  }
+
+  async function deleteDonation(id) {
+    if (!confirm('Excluir esta contribuição? Essa ação não pode ser desfeita.')) return;
+    await fetch(`/api/donations/${id}`, { method: 'DELETE' });
+    relatorioData = null; // invalidate cache, totais do mês podem ter mudado
+    loadDashboard();
   }
 
   async function startEditDonation(id) {
