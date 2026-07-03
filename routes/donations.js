@@ -52,9 +52,9 @@ router.patch('/:id', authMiddleware, async (req, res) => {
     }
 
     // Admin: edição multi-campo (status, forma de pagamento, lote, mês, valor)
-    const { status, paymentMethod, lotId, referenceMonth, amount } = req.body;
+    const { status, paymentMethod, lotId, referenceMonth, amount, rejectReason } = req.body;
 
-    if (status !== undefined && !['pago', 'pendente'].includes(status)) {
+    if (status !== undefined && !['pago', 'pendente', 'rejeitado'].includes(status)) {
       return res.status(400).json({ error: 'Status inválido' });
     }
     if (paymentMethod !== undefined && !['pix', 'dinheiro'].includes(paymentMethod)) {
@@ -77,6 +77,8 @@ router.patch('/:id', authMiddleware, async (req, res) => {
     const statusChanged = status !== undefined && status !== donation.status;
     const confirmedAt = statusChanged ? (newStatus === 'pago' ? new Date().toISOString() : null) : donation.confirmed_at;
     const confirmedBy = statusChanged ? (newStatus === 'pago' ? (req.session.username || 'admin') : null) : donation.confirmed_by;
+    const rejectedAt = statusChanged && newStatus === 'rejeitado' ? new Date().toISOString() : donation.rejected_at;
+    const rejectReasonVal = statusChanged && newStatus === 'rejeitado' ? (rejectReason?.trim() || null) : donation.reject_reason;
 
     await sql`UPDATE donations SET
       status = ${newStatus},
@@ -85,7 +87,9 @@ router.patch('/:id', authMiddleware, async (req, res) => {
       reference_month = ${referenceMonth !== undefined ? referenceMonth : donation.reference_month},
       amount = ${amount !== undefined ? amount : donation.amount},
       confirmed_at = ${confirmedAt},
-      confirmed_by = ${confirmedBy}
+      confirmed_by = ${confirmedBy},
+      reject_reason = ${rejectReasonVal},
+      rejected_at = ${rejectedAt}
       WHERE id = ${donationId}`;
     res.json({ ok: true });
   } catch (err) {

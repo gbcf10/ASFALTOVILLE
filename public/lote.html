@@ -23,6 +23,7 @@
     .card { @apply bg-white rounded-xl shadow-sm border border-gray-100 p-5; }
     .badge-pago { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800; }
     .badge-pendente { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800; }
+    .badge-rejeitado { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800; }
     .badge-pix { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800; }
     .badge-dinheiro { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800; }
   </style>
@@ -274,7 +275,20 @@
     if (!prevPaid) {
       bannerHtml += `<div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-3"><div class="flex items-start gap-3"><span class="text-xl">ℹ️</span><div><p class="font-semibold text-blue-800 text-sm">Você ainda pode contribuir com ${fmtMonth(prevMo)}${!paidThisMonth ? ` e com ${fmtMonth(currentMonth)}` : ''}</p><p class="text-blue-600 text-xs mt-0.5">A contribuição não é obrigatória. Se quiser regularizar um mês anterior, é só escolher o mês desejado ao registrar o pagamento abaixo.</p></div></div></div>`;
     }
-    document.getElementById('status-banner').innerHTML = bannerHtml;
+
+    // Aviso de confirmação ou recusa de pagamento pelo síndico
+    let noticeHtml = '';
+    const lastRejected = donations.find(d => d.status === 'rejeitado' && !(statusMap.get(d.reference_month)?.is_paid));
+    if (lastRejected) {
+      noticeHtml += `<div class="bg-red-50 border-2 border-red-300 rounded-xl p-4 mb-3"><div class="flex items-start gap-3"><span class="text-2xl">✕</span><div><p class="font-bold text-red-800">Pagamento de ${fmtMonth(lastRejected.reference_month)} recusado</p><p class="text-red-600 text-sm mt-0.5">${lastRejected.reject_reason ? lastRejected.reject_reason : 'Fale com o síndico para mais detalhes.'} Você pode registrar o pagamento novamente.</p></div></div></div>`;
+    }
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    const lastConfirmed = donations.find(d => d.status === 'pago' && d.confirmed_at && (Date.now() - new Date(d.confirmed_at).getTime()) < threeDaysMs);
+    if (lastConfirmed) {
+      noticeHtml += `<div class="bg-green-50 border-2 border-green-300 rounded-xl p-4 mb-3"><div class="flex items-start gap-3"><span class="text-2xl">✓</span><div><p class="font-bold text-green-800">Pagamento de ${fmtMonth(lastConfirmed.reference_month)} confirmado!</p><p class="text-green-600 text-sm mt-0.5">Sua contribuição de ${fmt(lastConfirmed.amount)} foi confirmada.</p></div></div></div>`;
+    }
+
+    document.getElementById('status-banner').innerHTML = noticeHtml + bannerHtml;
 
     // Monthly list
     let monthlyHtml = '';
@@ -313,8 +327,10 @@
           : '<span class="badge-dinheiro">💵 Dinheiro</span>';
         const statusBadge = d.status === 'pago'
           ? '<span class="badge-pago">✓ Pago</span>'
-          : '<span class="badge-pendente">⏳ Pendente</span>';
-        historyHtml += `<div class="p-3 bg-gray-50 rounded-lg"><div class="flex items-center gap-2 flex-wrap"><span class="font-semibold text-gray-800">${fmt(d.amount)}</span>${methodBadge}${statusBadge}</div>${d.reference_month ? `<p class="text-brand-600 text-xs mt-1 font-medium">Ref: ${fmtMonth(d.reference_month)}</p>` : ''}<p class="text-gray-400 text-xs mt-0.5">${fmtDate(d.created_at)}</p>${d.notes ? `<p class="text-gray-500 text-xs italic mt-0.5">${d.notes}</p>` : ''}</div>`;
+          : d.status === 'rejeitado'
+            ? '<span class="badge-rejeitado">✕ Recusado</span>'
+            : '<span class="badge-pendente">⏳ Pendente</span>';
+        historyHtml += `<div class="p-3 bg-gray-50 rounded-lg"><div class="flex items-center gap-2 flex-wrap"><span class="font-semibold text-gray-800">${fmt(d.amount)}</span>${methodBadge}${statusBadge}</div>${d.reference_month ? `<p class="text-brand-600 text-xs mt-1 font-medium">Ref: ${fmtMonth(d.reference_month)}</p>` : ''}<p class="text-gray-400 text-xs mt-0.5">${fmtDate(d.created_at)}</p>${d.notes ? `<p class="text-gray-500 text-xs italic mt-0.5">${d.notes}</p>` : ''}${d.status === 'rejeitado' && d.reject_reason ? `<p class="text-red-500 text-xs italic mt-0.5">Motivo: ${d.reject_reason}</p>` : ''}</div>`;
       }
       historyHtml += '</div>';
     }
