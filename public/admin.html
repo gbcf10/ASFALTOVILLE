@@ -67,7 +67,10 @@
 
   <!-- PAINEL -->
   <div id="section-painel" class="hidden space-y-6">
-    <h1 class="text-2xl font-bold text-gray-800">Painel Geral</h1>
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">Painel Geral</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Mês atual: <span id="s-current-month" class="font-semibold text-brand-700"></span></p>
+    </div>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
       <div class="card text-center"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Arrecadado</p><p id="s-paid" class="text-2xl font-bold text-brand-700"></p></div>
       <div class="card text-center"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Pendente</p><p id="s-pending" class="text-2xl font-bold text-yellow-600"></p></div>
@@ -75,8 +78,20 @@
       <div class="card text-center"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Saldo</p><p id="s-balance" class="text-2xl font-bold"></p></div>
     </div>
     <div class="grid grid-cols-2 gap-4">
-      <div class="card text-center"><p id="s-clots" class="text-3xl font-bold text-brand-700"></p><p class="text-gray-500 text-sm mt-1">Lotes colaboraram</p></div>
-      <div class="card text-center"><p id="s-plots" class="text-3xl font-bold text-yellow-600"></p><p class="text-gray-500 text-sm mt-1">Lotes pendentes</p></div>
+      <div class="card text-center"><p id="s-clots" class="text-3xl font-bold text-brand-700"></p><p class="text-gray-500 text-sm mt-1">Lotes colaboraram no mês</p></div>
+      <div class="card text-center"><p id="s-plots" class="text-3xl font-bold text-yellow-600"></p><p class="text-gray-500 text-sm mt-1">Lotes pendentes no mês</p></div>
+    </div>
+    <div class="card">
+      <h2 class="font-bold text-gray-800 mb-4">Lotes que colaboraram em <span id="s-month-contrib-label"></span></h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="text-left text-gray-400 border-b border-gray-100">
+            <th class="pb-2 font-medium">Lote</th><th class="pb-2 font-medium">Proprietário</th>
+            <th class="pb-2 font-medium text-right">Valor pago</th>
+          </tr></thead>
+          <tbody id="month-contrib-body" class="divide-y divide-gray-50"></tbody>
+        </table>
+      </div>
     </div>
     <div class="card">
       <h2 class="font-bold text-gray-800 mb-4">Arrecadado por Mês</h2>
@@ -406,7 +421,9 @@
   async function loadDashboard() {
     const res = await fetch('/api/admin/dashboard');
     if (!res.ok) return;
-    const { stats, pendingDonations, recentDonations, monthly, currentMonth } = await res.json();
+    const { stats, pendingDonations, recentDonations, monthly, currentMonth, monthContributors } = await res.json();
+
+    document.getElementById('s-current-month').textContent = fmtMonth(currentMonth);
 
     document.getElementById('month-paid-body').innerHTML = monthly.length === 0
       ? '<tr><td colspan="2" class="text-center py-4 text-gray-400">Nenhum dado ainda.</td></tr>'
@@ -416,14 +433,24 @@
           <td class="py-2 text-right font-semibold text-brand-700">${fmt(m.total_paid)}</td>
         </tr>`).join('');
 
+    document.getElementById('s-month-contrib-label').textContent = fmtMonth(currentMonth);
+    document.getElementById('month-contrib-body').innerHTML = monthContributors.length === 0
+      ? '<tr><td colspan="3" class="text-center py-4 text-gray-400">Nenhum lote colaborou neste mês ainda.</td></tr>'
+      : monthContributors.map(l => `
+        <tr>
+          <td class="py-2 font-mono font-bold text-xs text-gray-700">${l.display_id}</td>
+          <td class="py-2 text-gray-700 max-w-[160px] truncate">${l.owner_name || 'Sem nome'}</td>
+          <td class="py-2 text-right font-semibold text-brand-700">${fmt(l.paid)}</td>
+        </tr>`).join('');
+
     document.getElementById('s-paid').textContent = fmt(stats.totalPaid);
     document.getElementById('s-pending').textContent = fmt(stats.totalPending);
     document.getElementById('s-expenses').textContent = fmt(stats.totalExpenses);
     const bal = document.getElementById('s-balance');
     bal.textContent = fmt(stats.balance);
     bal.className = `text-2xl font-bold ${stats.balance >= 0 ? 'text-brand-700' : 'text-red-600'}`;
-    document.getElementById('s-clots').textContent = stats.contributingLots;
-    document.getElementById('s-plots').textContent = stats.totalActiveLots - stats.contributingLots;
+    document.getElementById('s-clots').textContent = monthContributors.length;
+    document.getElementById('s-plots').textContent = stats.totalActiveLots - monthContributors.length;
 
     // Pending
     if (pendingDonations.length > 0) {
