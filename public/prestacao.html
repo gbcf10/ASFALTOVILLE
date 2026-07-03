@@ -107,18 +107,33 @@
     if (monthly.length === 0) {
       document.getElementById('monthly-list').innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Nenhum dado registrado ainda.</p>';
     } else {
-      document.getElementById('monthly-list').innerHTML = monthly.map(m => `
+      document.getElementById('monthly-list').innerHTML = monthly.map((m, i) => {
+        const prevBalance = monthly[i + 1]?.running_balance ?? 0;
+        return `
         <div class="border border-gray-100 rounded-xl overflow-hidden">
-          <div class="bg-gray-50 px-4 py-3 flex items-center justify-between">
+          <div class="bg-gray-50 px-4 py-3">
             <h3 class="font-bold text-gray-700">${fmtMonth(m.reference_month)}</h3>
-            <span class="text-sm font-bold ${m.running_balance >= 0 ? 'text-brand-600' : 'text-red-600'}">Saldo acum.: ${fmt(m.running_balance)}</span>
           </div>
-          <div class="px-4 py-3 grid grid-cols-3 gap-3 text-center">
-            <div><p class="text-xs text-gray-400 mb-0.5">Arrecadado</p><p class="font-bold text-brand-700">${fmt(m.total_paid)}</p><p class="text-xs text-gray-400">${m.contributing_lots} lotes</p></div>
-            <div><p class="text-xs text-gray-400 mb-0.5">Despesas</p><p class="font-bold text-red-600">${fmt(m.total_expenses)}</p></div>
-            <div><p class="text-xs text-gray-400 mb-0.5">Resultado</p><p class="font-bold ${m.total_paid - m.total_expenses >= 0 ? 'text-brand-600' : 'text-red-600'}">${fmt(m.total_paid - m.total_expenses)}</p></div>
+          <div class="px-4 py-3 space-y-2 text-sm">
+            <div class="flex items-center justify-between text-gray-500">
+              <span>Saldo do mês anterior</span>
+              <span class="font-medium ${prevBalance >= 0 ? 'text-gray-600' : 'text-red-500'}">${fmt(prevBalance)}</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-brand-700">(+) Arrecadado no mês <span class="text-xs text-gray-400">(${m.contributing_lots} lotes)</span></span>
+              <span class="font-semibold text-brand-700">${fmt(m.total_paid)}</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-red-600">(−) Despesas no mês</span>
+              <span class="font-semibold text-red-600">${fmt(m.total_expenses)}</span>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-gray-200">
+              <span class="font-bold text-gray-800">Saldo final do mês</span>
+              <span class="font-bold text-lg ${m.running_balance >= 0 ? 'text-brand-700' : 'text-red-600'}">${fmt(m.running_balance)}</span>
+            </div>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
 
     // Expenses
