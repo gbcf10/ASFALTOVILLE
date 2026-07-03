@@ -7,15 +7,18 @@ const { authMiddleware, adminOnly } = require('../lib/auth');
 router.get('/dashboard', authMiddleware, adminOnly, async (req, res) => {
   try {
     await ensureInit();
-    const [stats, pending, recent] = await Promise.all([
+    const [stats, pending, recent, monthly] = await Promise.all([
       getDashboardStats(),
       sql`SELECT d.*, l.display_id, l.owner_name FROM donations d JOIN lots l ON l.id = d.lot_id WHERE d.status = 'pendente' ORDER BY d.created_at DESC`,
       sql`SELECT d.*, l.display_id, l.owner_name FROM donations d JOIN lots l ON l.id = d.lot_id ORDER BY d.created_at DESC LIMIT 20`,
+      getMonthlyStats(),
     ]);
     res.json({
       stats,
       pendingDonations: pending.map(d => ({ ...d, amount: Number(d.amount) })),
       recentDonations: recent.map(d => ({ ...d, amount: Number(d.amount) })),
+      monthly,
+      currentMonth: currentMonth(),
     });
   } catch (err) {
     console.error(err);
